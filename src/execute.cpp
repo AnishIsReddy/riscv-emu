@@ -26,218 +26,254 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
     const uint8_t shift_amt_rs2_32 = instr.imm & 0x1F;
 
     switch (instr.itype) {
-    case instr_type::LUI:
+    case instr_type::LUI: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = instr.imm;
         return out;
+    }
 
-    case instr_type::AUIPC:
+    case instr_type::AUIPC: {
         out.type = exec_result_type::NO_UPDATE;
         out.new_pc = pc + instr.imm;
         return out;
+    }
 
-    case instr_type::JAL:
+    case instr_type::JAL: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = pc + 4;
         out.new_pc = pc + instr.imm;
         return out;
+    }
 
-    case instr_type::JALR:
+    case instr_type::JALR: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = pc + 4;
         out.new_pc = pc + instr.imm + reg_file[instr.rs1];
         return out;
+    }
 
-    case instr_type::BEQ:
+    case instr_type::BEQ: {
         out.type = exec_result_type::NO_UPDATE;
         if (reg_file[instr.rs1] == reg_file[instr.rs2]) {
             out.new_pc = pc + instr.imm;
         }
         return out;
+    }
 
-    case instr_type::BNE:
+    case instr_type::BNE: {
         out.type = exec_result_type::NO_UPDATE;
         if (reg_file[instr.rs1] != reg_file[instr.rs2]) {
             out.new_pc = pc + instr.imm;
         }
         return out;
+    }
 
-    case instr_type::BLT:
+    case instr_type::BLT: {
         out.type = exec_result_type::NO_UPDATE;
         if (static_cast<int64_t>(reg_file[instr.rs1]) < static_cast<int64_t>(reg_file[instr.rs2])) {
             out.new_pc = pc + instr.imm;
         }
         return out;
+    }
 
-    case instr_type::BGE:
+    case instr_type::BGE: {
         out.type = exec_result_type::NO_UPDATE;
         if (static_cast<int64_t>(reg_file[instr.rs1]) >= static_cast<int64_t>(reg_file[instr.rs2])) {
             out.new_pc = pc + instr.imm;
         }
         return out;
+    }
 
-    case instr_type::BLTU:
+    case instr_type::BLTU: {
         out.type = exec_result_type::NO_UPDATE;
         if (reg_file[instr.rs1] < reg_file[instr.rs2]) {
             out.new_pc = pc + instr.imm;
         }
         return out;
+    }
 
-    case instr_type::BGEU:
+    case instr_type::BGEU: {
         out.type = exec_result_type::NO_UPDATE;
         if (reg_file[instr.rs1] >= reg_file[instr.rs2]) {
             out.new_pc = pc + instr.imm;
         }
         return out;
+    }
 
-    case instr_type::LB:
+    case instr_type::LB: {
         out.type = exec_result_type::UPDATE_RD_FROM_MEM;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 1;
         return out;
+    }
 
-    case instr_type::LH:
+    case instr_type::LH: {
         out.type = exec_result_type::UPDATE_RD_FROM_MEM;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 2;
         return out;
+    }
 
-    case instr_type::LW:
+    case instr_type::LW: {
         out.type = exec_result_type::UPDATE_RD_FROM_MEM;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 4;
         return out;
+    }
 
-    case instr_type::LBU:
+    case instr_type::LBU: {
         out.type = exec_result_type::UPDATE_RD_FROM_MEM;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 1;
         out.zero_extend_val = true;
         return out;
+    }
 
-    case instr_type::LHU:
+    case instr_type::LHU: {
         out.type = exec_result_type::UPDATE_RD_FROM_MEM;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 2;
         out.zero_extend_val = true;
         return out;
+    }
 
-    case instr_type::SB:
+    case instr_type::SB: {
         out.type = exec_result_type::UPDATE_MEM_FROM_VAL;
         out.val = reg_file[instr.rs2] & 0xFF;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 1;
         return out;
+    }
 
-    case instr_type::SH:
+    case instr_type::SH: {
         out.type = exec_result_type::UPDATE_MEM_FROM_VAL;
         out.val = reg_file[instr.rs2] & 0xFFFF;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 2;
         return out;
+    }
 
-    case instr_type::SW:
+    case instr_type::SW: {
         out.type = exec_result_type::UPDATE_MEM_FROM_VAL;
         out.val = reg_file[instr.rs2] & 0xFFFFFFFF;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 4;
         return out;
+    }
 
-    case instr_type::ADDI:
+    case instr_type::ADDI: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] + instr.imm;
         return out;
+    }
 
-    case instr_type::SLTI:
+    case instr_type::SLTI: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = static_cast<int64_t>(reg_file[instr.rs1]) < instr.imm;
         return out;
+    }
 
-    case instr_type::SLTIU:
+    case instr_type::SLTIU: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] < static_cast<uint64_t>(instr.imm);
         return out;
+    }
 
-    case instr_type::XORI:
+    case instr_type::XORI: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] ^ instr.imm;
         return out;
+    }
 
-    case instr_type::ORI:
+    case instr_type::ORI: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] | instr.imm;
         return out;
+    }
 
-    case instr_type::ANDI:
+    case instr_type::ANDI: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] & instr.imm;
         return out;
+    }
 
-    case instr_type::SLLI:
+    case instr_type::SLLI: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] << shift_amt_imm;
         return out;
+    }
 
-    case instr_type::SRLI:
+    case instr_type::SRLI: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] >> shift_amt_imm;
         return out;
+    }
 
-    case instr_type::SRAI:
+    case instr_type::SRAI: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = sign_extend(reg_file[instr.rs1] >> shift_amt_imm, 64 - shift_amt_imm);
         return out;
+    }
 
-    case instr_type::ADD:
+    case instr_type::ADD: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] + reg_file[instr.rs2];
         return out;
+    }
 
-    case instr_type::SUB:
+    case instr_type::SUB: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] - reg_file[instr.rs2];
         return out;
+    }
 
-    case instr_type::SLL:
+    case instr_type::SLL: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] << reg_file[instr.rs2];
         return out;
+    }
 
-    case instr_type::SLT:
+    case instr_type::SLT: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = static_cast<int64_t>(reg_file[instr.rs1]) < static_cast<int64_t>(reg_file[instr.rs1]);
         return out;
+    }
 
-    case instr_type::SLTU:
+    case instr_type::SLTU: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] < shift_amt_rs2;
         return out;
+    }
 
-    case instr_type::XOR:
+    case instr_type::XOR: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] ^ reg_file[instr.rs2];
         return out;
+    }
 
-    case instr_type::SRL:
+    case instr_type::SRL: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] >> shift_amt_rs2;
         return out;
+    }
 
-    case instr_type::SRA:
+    case instr_type::SRA: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = sign_extend(reg_file[instr.rs1] >> shift_amt_rs2, 64 - shift_amt_rs2);
         return out;
+    }
 
-    case instr_type::OR:
+    case instr_type::OR: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] | reg_file[instr.rs2];
         return out;
+    }
 
-    case instr_type::AND:
+    case instr_type::AND: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = reg_file[instr.rs1] & reg_file[instr.rs2];
         return out;
-
+    }
     case instr_type::FENCE:
     case instr_type::FENCE_TSO:
     case instr_type::PAUSE:
@@ -245,69 +281,82 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
     case instr_type::EBREAK:
         return out;
 
-    case instr_type::LWU:
+
+    case instr_type::LWU: {
         out.type = exec_result_type::UPDATE_RD_FROM_MEM;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 4;
         out.zero_extend_val = true;
         return out;
+    }
 
-    case instr_type::LD:
+    case instr_type::LD: {
         out.type = exec_result_type::UPDATE_RD_FROM_MEM;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 8;
         return out;
+    }
 
-    case instr_type::SD:
+    case instr_type::SD: {
         out.type = exec_result_type::UPDATE_MEM_FROM_VAL;
         out.val = reg_file[instr.rs2];
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 8;
         return out;
+    }
 
-    case instr_type::ADDIW:
+    case instr_type::ADDIW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = sign_extend((reg_file[instr.rs1] & 0xFFFFFFFF) + (instr.imm & 0xFFFFFFFF), 32);
         return out;
+    }
 
-    case instr_type::SLLIW:
+    case instr_type::SLLIW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = sign_extend((reg_file[instr.rs1] << shift_amt_imm_32) & 0xFFFFFFFF, 32);
         return out;
+    }
 
-    case instr_type::SRLIW:
+    case instr_type::SRLIW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = sign_extend((reg_file[instr.rs1] >> shift_amt_imm_32) & 0xFFFFFFFF, 32);
         return out;
+    }
 
-    case instr_type::SRAIW:
+    case instr_type::SRAIW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] >> shift_amt_imm_32) & 0xFFFFFFFF, 32-shift_amt_imm_32);
+        out.val = sign_extend((reg_file[instr.rs1] >> shift_amt_imm_32) & 0xFFFFFFFF, 32 - shift_amt_imm_32);
         return out;
+    }
 
-    case instr_type::ADDW:
+    case instr_type::ADDW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = sign_extend((reg_file[instr.rs1] & 0xFFFFFFFF) + (reg_file[instr.rs2] & 0xFFFFFFFF), 32);
         return out;
+    }
 
-    case instr_type::SUBW:
+    case instr_type::SUBW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = sign_extend((reg_file[instr.rs1] & 0xFFFFFFFF) - (reg_file[instr.rs2] & 0xFFFFFFFF), 32);
         return out;
+    }
 
-    case instr_type::SLLW:
+    case instr_type::SLLW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = sign_extend((reg_file[instr.rs1] << shift_amt_rs2_32) & 0xFFFFFFFF, 32);
         return out;
+    }
 
-    case instr_type::SRLW:
+    case instr_type::SRLW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = sign_extend((reg_file[instr.rs1] >> shift_amt_rs2_32) & 0xFFFFFFFF, 32);
         return out;
-    case instr_type::SRAW:
+    }
+    case instr_type::SRAW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] >> shift_amt_rs2_32) & 0xFFFFFFFF, 32-shift_amt_rs2_32);
+        out.val = sign_extend((reg_file[instr.rs1] >> shift_amt_rs2_32) & 0xFFFFFFFF, 32 - shift_amt_rs2_32);
         return out;
+    }
 
     default:
         return out;
