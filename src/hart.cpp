@@ -20,9 +20,6 @@ bool hart::step()
 {
     const auto raw_instr = mem_bus->read_memory(pc, 4);
     const auto instr = decode(raw_instr);
-    if (instr.itype == instr_type::INVALID) {
-        return false;
-    }
     const auto exec_result = execute(instr, reg_file, pc);
 
     switch (exec_result.type) {
@@ -46,8 +43,16 @@ bool hart::step()
         break;
     }
 
-    // Pin 0 to r0. Do this here to ensure it's decoupled from the rest of the logic
+    // Pin 0 to r0. Do this here to ensure it's decoupled from the rest of the logic.
     reg_file[0] = 0;
+
+    // Advance the pc.
+    pc = exec_result.new_pc;
+
+    // If the instruction was invalid, then return false.
+    if (instr.itype == instr_type::INVALID) {
+        return false;
+    }
 
     return true;
 }
