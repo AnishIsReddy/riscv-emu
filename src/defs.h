@@ -5,8 +5,6 @@
 #ifndef RISCV_EMU_DEFS_H
 #define RISCV_EMU_DEFS_H
 
-#include <cstdint>
-
 namespace riscv_emu
 {
     constexpr uint64_t ADDR_WIDTH = 64; // 64-bit system
@@ -38,7 +36,13 @@ namespace riscv_emu
         SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND, FENCE, FENCE_TSO, PAUSE, ECALL, EBREAK,
 
         // RV64i instructions
-        LWU, LD, SD, ADDIW, SLLIW, SRLIW, SRAIW, ADDW, SUBW, SLLW, SRLW, SRAW
+        LWU, LD, SD, ADDIW, SLLIW, SRLIW, SRAIW, ADDW, SUBW, SLLW, SRLW, SRAW,
+
+        // RV32M instructions
+        MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU,
+
+        // RV64M instructions
+        MULW, DIVW, DIVUW, REMW, REMUW
     };
 
     struct instr_info
@@ -87,6 +91,16 @@ namespace riscv_emu
     inline int64_t sign_extend(const uint64_t value, const uint8_t bits)
     {
         return static_cast<int64_t>(value) << (64 - bits) >> (64 - bits);
+    }
+
+    inline uint64_t arith_shift_right(const uint64_t value, const uint8_t bits)
+    {
+        return static_cast<int64_t>(value) >> bits;
+    }
+
+    inline uint64_t logical_shift_right(const uint64_t value, const uint8_t bits)
+    {
+        return static_cast<uint64_t>(value) >> bits;
     }
 
 }

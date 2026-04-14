@@ -2,7 +2,11 @@
 // Created by anish on 4/13/2026.
 //
 
+#include <cstdint>
 #include "execute.h"
+
+
+#define MASK_32 0xFFFFFFFF
 
 using namespace riscv_emu;
 
@@ -23,7 +27,7 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
     const uint8_t shift_amt_imm = instr.imm & 0x3F;
     const uint8_t shift_amt_imm_32 = instr.imm & 0x1F;
     const uint8_t shift_amt_rs2 = reg_file[instr.rs2] & 0x3F;
-    const uint8_t shift_amt_rs2_32 = instr.imm & 0x1F;
+    const uint8_t shift_amt_rs2_32 = reg_file[instr.rs2] & 0x1F;
 
     switch (instr.itype) {
     case instr_type::LUI: {
@@ -33,8 +37,8 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
     }
 
     case instr_type::AUIPC: {
-        out.type = exec_result_type::NO_UPDATE;
-        out.new_pc = pc + instr.imm;
+        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+        out.val = pc + instr.imm;
         return out;
     }
 
@@ -48,7 +52,7 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
     case instr_type::JALR: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
         out.val = pc + 4;
-        out.new_pc = pc + instr.imm + reg_file[instr.rs1];
+        out.new_pc = (instr.imm + reg_file[instr.rs1]) & ~0x1;
         return out;
     }
 
@@ -155,7 +159,7 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
 
     case instr_type::SW: {
         out.type = exec_result_type::UPDATE_MEM_FROM_VAL;
-        out.val = reg_file[instr.rs2] & 0xFFFFFFFF;
+        out.val = reg_file[instr.rs2] & MASK_32;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 4;
         return out;
@@ -205,13 +209,13 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
 
     case instr_type::SRLI: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] >> shift_amt_imm;
+        out.val = logical_shift_right(reg_file[instr.rs1], shift_amt_imm);
         return out;
     }
 
     case instr_type::SRAI: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend(reg_file[instr.rs1] >> shift_amt_imm, 64 - shift_amt_imm);
+        out.val = arith_shift_right(reg_file[instr.rs1], shift_amt_imm);
         return out;
     }
 
@@ -229,19 +233,19 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
 
     case instr_type::SLL: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] << reg_file[instr.rs2];
+        out.val = reg_file[instr.rs1] << shift_amt_rs2;
         return out;
     }
 
     case instr_type::SLT: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = static_cast<int64_t>(reg_file[instr.rs1]) < static_cast<int64_t>(reg_file[instr.rs1]);
+        out.val = static_cast<int64_t>(reg_file[instr.rs1]) < static_cast<int64_t>(reg_file[instr.rs2]);
         return out;
     }
 
     case instr_type::SLTU: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] < shift_amt_rs2;
+        out.val = reg_file[instr.rs1] < reg_file[instr.rs2];
         return out;
     }
 
@@ -253,13 +257,13 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
 
     case instr_type::SRL: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] >> shift_amt_rs2;
+        out.val = logical_shift_right(reg_file[instr.rs1], shift_amt_rs2);
         return out;
     }
 
     case instr_type::SRA: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend(reg_file[instr.rs1] >> shift_amt_rs2, 64 - shift_amt_rs2);
+        out.val = arith_shift_right(reg_file[instr.rs1], shift_amt_rs2);
         return out;
     }
 
@@ -307,54 +311,59 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
 
     case instr_type::ADDIW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] & 0xFFFFFFFF) + (instr.imm & 0xFFFFFFFF), 32);
+        out.val = sign_extend((reg_file[instr.rs1] & MASK_32) + (instr.imm & MASK_32), 32);
         return out;
     }
 
     case instr_type::SLLIW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] << shift_amt_imm_32) & 0xFFFFFFFF, 32);
+        out.val = sign_extend((reg_file[instr.rs1] << shift_amt_imm_32) & MASK_32 , 32);
         return out;
     }
 
     case instr_type::SRLIW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] >> shift_amt_imm_32) & 0xFFFFFFFF, 32);
+        out.val = logical_shift_right(reg_file[instr.rs1] & MASK_32, shift_amt_imm_32);
+        out.val = sign_extend(out.val,32);
         return out;
     }
 
     case instr_type::SRAIW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] >> shift_amt_imm_32) & 0xFFFFFFFF, 32 - shift_amt_imm_32);
+        out.val = sign_extend(reg_file[instr.rs1] & MASK_32, 32);
+        out.val = arith_shift_right(out.val, shift_amt_imm_32);
         return out;
     }
 
     case instr_type::ADDW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] & 0xFFFFFFFF) + (reg_file[instr.rs2] & 0xFFFFFFFF), 32);
+        out.val = sign_extend((reg_file[instr.rs1] & MASK_32) + (reg_file[instr.rs2] & MASK_32), 32);
         return out;
     }
 
     case instr_type::SUBW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] & 0xFFFFFFFF) - (reg_file[instr.rs2] & 0xFFFFFFFF), 32);
+        out.val = sign_extend((reg_file[instr.rs1] & MASK_32) - (reg_file[instr.rs2] & MASK_32), 32);
         return out;
     }
 
     case instr_type::SLLW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] << shift_amt_rs2_32) & 0xFFFFFFFF, 32);
+        out.val = sign_extend((reg_file[instr.rs1] << shift_amt_rs2_32) & MASK_32, 32);
         return out;
     }
 
     case instr_type::SRLW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] >> shift_amt_rs2_32) & 0xFFFFFFFF, 32);
+        out.val = logical_shift_right(reg_file[instr.rs1] & MASK_32, shift_amt_rs2_32);
+        out.val = sign_extend(out.val, 32);
         return out;
     }
+
     case instr_type::SRAW: {
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] >> shift_amt_rs2_32) & 0xFFFFFFFF, 32 - shift_amt_rs2_32);
+        out.val = sign_extend(reg_file[instr.rs1] & MASK_32, 32);
+        out.val = arith_shift_right(out.val, shift_amt_rs2_32);
         return out;
     }
 
