@@ -17,7 +17,7 @@ namespace riscv_emu
     public:
         machine();
         void run();
-        void load(std::vector<uint8_t>::pointer data, std::size_t size);
+        void load(const uint8_t* data, std::size_t size) const;
 
         ram m_ram;
         bus m_bus;

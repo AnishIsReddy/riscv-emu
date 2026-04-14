@@ -16,11 +16,11 @@ namespace riscv_emu
     public:
         explicit bus(ram* mem_ptr);
 
-        uint64_t read_memory(uint64_t addr, uint8_t size);
-        void write_memory(uint64_t addr, uint64_t data, uint8_t size);
+        [[nodiscard]] uint64_t read_memory(uint64_t addr, uint8_t size) const;
+        void write_memory(uint64_t addr, uint64_t data, uint8_t size) const;
 
     private:
-        ram* memory;
+        ram* main_memory;
 
     };
 } // riscv_emu

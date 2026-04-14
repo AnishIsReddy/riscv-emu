@@ -14,7 +14,7 @@ machine::machine() : m_bus(&m_ram)
     m_harts.emplace_back(&m_bus);
 }
 
-void machine::load(uint8_t* data, std::size_t size)
+void machine::load(const uint8_t* data, const std::size_t size) const
 {
     m_ram.load(data, size);
 }

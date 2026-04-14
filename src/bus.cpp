@@ -7,17 +7,14 @@
 
 using namespace riscv_emu;
 
-bus::bus(ram* mem_ptr)
+bus::bus(ram* mem_ptr) : main_memory(mem_ptr) {}
+
+uint64_t bus::read_memory(const uint64_t addr, const uint8_t size) const
 {
-    memory = mem_ptr;
+    return main_memory->read_addr(addr, size);
 }
 
-uint64_t bus::read_memory(uint64_t addr, uint8_t size)
+void bus::write_memory(const uint64_t addr, const uint64_t data, const uint8_t size) const
 {
-    return 0;
-}
-
-void bus::write_memory(uint64_t addr, uint64_t data, uint8_t size)
-{
-
+    main_memory->write_addr(addr, data, size);
 }

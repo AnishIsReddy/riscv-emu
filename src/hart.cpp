@@ -18,7 +18,7 @@ hart::hart(bus* bus_ptr)
 
 bool hart::step()
 {
-    const auto raw_instr = mem_bus->read_memory(pc, 32);
+    const auto raw_instr = mem_bus->read_memory(pc, 4);
     const auto instr = decode(raw_instr);
     if (instr.itype == instr_type::INVALID) {
         return false;
