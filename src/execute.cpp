@@ -6,7 +6,7 @@
 
 using namespace riscv_emu;
 
-exec_result execute(const instr_info instr, const uint64_t reg_file[REG_COUNT], const uint64_t pc)
+exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COUNT], uint64_t pc)
 {
     exec_result out = {
         .type = exec_result_type::NO_UPDATE,
@@ -190,7 +190,7 @@ exec_result execute(const instr_info instr, const uint64_t reg_file[REG_COUNT], 
 
     case instr_type::ADD:
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] - reg_file[instr.rs2];
+        out.val = reg_file[instr.rs1] + reg_file[instr.rs2];
         return out;
 
     case instr_type::SUB:
@@ -239,14 +239,9 @@ exec_result execute(const instr_info instr, const uint64_t reg_file[REG_COUNT], 
         return out;
 
     case instr_type::FENCE:
-        return out;
     case instr_type::FENCE_TSO:
-        return out;
     case instr_type::PAUSE:
-        return out;
-
     case instr_type::ECALL:
-        return out;
     case instr_type::EBREAK:
         return out;
 
@@ -307,7 +302,7 @@ exec_result execute(const instr_info instr, const uint64_t reg_file[REG_COUNT], 
 
     case instr_type::SRLW:
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] << shift_amt_rs2_32) & 0xFFFFFFFF, 32);
+        out.val = sign_extend((reg_file[instr.rs1] >> shift_amt_rs2_32) & 0xFFFFFFFF, 32);
         return out;
     case instr_type::SRAW:
         out.type = exec_result_type::UPDATE_RD_FROM_VAL;

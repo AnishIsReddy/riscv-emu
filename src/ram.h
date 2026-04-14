@@ -12,6 +12,7 @@ namespace riscv_emu
     class ram
     {
     public:
+        void load(const uint8_t* data, std::size_t size) const;
 
     private:
         std::unique_ptr<uint8_t[]> memory = std::make_unique<uint8_t[]>(MEM_SIZE);

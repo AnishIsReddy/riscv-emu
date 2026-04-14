@@ -9,7 +9,7 @@
 
 namespace riscv_emu
 {
-    static instr_info decode(uint32_t raw);
+     instr_info decode(uint32_t raw);
 } // riscv_emu
 
 #endif //RISCV_EMU_DECODER_H

@@ -7,7 +7,17 @@
 
 using namespace riscv_emu;
 
-bus::bus(std::unique_ptr<ram> mem_ptr)
+bus::bus(ram* mem_ptr)
 {
-    memory = std::move(mem_ptr);
+    memory = mem_ptr;
+}
+
+uint64_t bus::read_memory(uint64_t addr, uint8_t size)
+{
+    return 0;
+}
+
+void bus::write_memory(uint64_t addr, uint64_t data, uint8_t size)
+{
+
 }

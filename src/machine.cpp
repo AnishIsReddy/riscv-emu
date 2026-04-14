@@ -6,13 +6,17 @@
 
 #include "bus.h"
 #include "hart.h"
-#include "ram.h"
 
 using namespace riscv_emu;
 
-machine::machine() : m_bus(std::move(std::make_unique<ram>()))
+machine::machine() : m_bus(&m_ram)
 {
     m_harts.emplace_back(&m_bus);
+}
+
+void machine::load(uint8_t* data, std::size_t size)
+{
+    m_ram.load(data, size);
 }
 
 void machine::run()

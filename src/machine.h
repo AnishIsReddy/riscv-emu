@@ -7,17 +7,19 @@
 
 #include <vector>
 #include "bus.h"
+#include "ram.h"
+#include "hart.h"
 
 namespace riscv_emu
 {
-    class bus;
-    class hart;
-
     class machine
     {
     public:
         machine();
         void run();
+        void load(std::vector<uint8_t>::pointer data, std::size_t size);
+
+        ram m_ram;
         bus m_bus;
         std::vector<hart> m_harts;
     };

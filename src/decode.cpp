@@ -301,7 +301,7 @@ instr_info decode_jtype(const uint32_t raw)
     return out;
 }
 
-instr_info decode(const uint32_t raw)
+instr_info riscv_emu::decode(const uint32_t raw)
 {
     const auto op = static_cast<opcode>(raw & 0x7F);
 

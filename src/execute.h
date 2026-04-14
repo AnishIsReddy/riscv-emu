@@ -8,7 +8,7 @@
 
 namespace riscv_emu
 {
-    const exec_result execute(instr_info instr, const uint64_t reg_file[REG_COUNT], uint64_t pc);
+    exec_result execute(instr_info instr, const uint64_t reg_file[REG_COUNT], uint64_t pc);
 } // riscv_emu
 
 #endif //RISCV_EMU_EXECUTE_H
