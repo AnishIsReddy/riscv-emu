@@ -17,6 +17,8 @@ namespace riscv_emu
         [[nodiscard]] uint64_t read_addr(uint64_t addr, uint8_t size) const;
         void write_addr(uint64_t addr, uint64_t data, uint8_t size) const;
 
+        void dump(std::ostream& os) const;
+
     private:
         std::unique_ptr<uint8_t[]> memory = std::make_unique<uint8_t[]>(MEM_SIZE);
     };

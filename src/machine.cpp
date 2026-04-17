@@ -29,7 +29,13 @@ void machine::run()
 
 void machine::dump(std::ostream& os) const
 {
+    os << "[HARTS]" << std::endl;
     for (const auto& h : m_harts) {
         h.dump_regs(os);
     }
+
+    os << std::endl;
+
+    std::cout << "[RAM]" << std::endl;
+    m_ram.dump(os);
 }
