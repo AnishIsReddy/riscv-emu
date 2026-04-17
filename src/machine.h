@@ -18,7 +18,9 @@ namespace riscv_emu
         machine();
         void run();
         void load(const uint8_t* data, std::size_t size) const;
+        void dump(std::ostream& os) const;
 
+    private:
         ram m_ram;
         bus m_bus;
         std::vector<hart> m_harts;

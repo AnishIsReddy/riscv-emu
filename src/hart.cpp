@@ -28,11 +28,10 @@ bool hart::step()
         break;
     }
     case exec_result_type::UPDATE_RD_FROM_MEM: {
-        uint64_t val = mem_bus->read_memory(exec_result.mem_addr, exec_result.mem_size);
-        if (!exec_result.zero_extend_val) {
-            val = sign_extend(val, exec_result.mem_size * 8);
+        reg_file[exec_result.rd] = mem_bus->read_memory(exec_result.mem_addr, exec_result.mem_size);
+        if (exec_result.zero_extend_val) {
+            reg_file[exec_result.rd] = sign_extend(reg_file[exec_result.rd], exec_result.mem_size * 8);
         }
-        reg_file[exec_result.rd] = val;
         break;
     }
     case exec_result_type::UPDATE_MEM_FROM_VAL: {
@@ -55,4 +54,13 @@ bool hart::step()
     }
 
     return true;
+}
+
+void hart::dump_regs(std::ostream& os) const {
+    os << "PC: " << std::hex << pc << std::endl;
+    os << "Regfile" << std::endl;
+    for (auto& i : reg_file) {
+        os << std::hex << i << "\n";
+    }
+    os << std::endl;
 }

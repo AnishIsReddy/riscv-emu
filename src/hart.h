@@ -6,6 +6,8 @@
 #define RISCV_EMU_HART_H
 
 #include "defs.h"
+#include <cstdint>
+#include <iostream>
 
 namespace riscv_emu {
     class bus;
@@ -15,6 +17,7 @@ namespace riscv_emu {
     public:
         explicit hart(bus* bus_ptr);
         bool step();
+        void dump_regs(std::ostream& os) const;
 
     private:
         uint64_t pc = 0;

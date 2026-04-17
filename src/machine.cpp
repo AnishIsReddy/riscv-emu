@@ -26,3 +26,10 @@ void machine::run()
         step_ok = m_harts[0].step();
     }
 }
+
+void machine::dump(std::ostream& os) const
+{
+    for (const auto& h : m_harts) {
+        h.dump_regs(os);
+    }
+}

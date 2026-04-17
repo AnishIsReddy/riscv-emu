@@ -18,5 +18,6 @@ int main()
     auto binary = load_binary_file("test.bin");
     machine.load(binary.data(), binary.size());
     machine.run();
+    machine.dump(std::cout);
     return 0;
 }
