@@ -55,6 +55,35 @@ instr_info decode_rtype(const uint32_t raw)
     case 0b111:
         itype_OP = instr_type::AND;
         break;
+    case 0b1000:
+        itype_OP = instr_type::MUL;
+        itype_OP_32 = instr_type::MULW;
+        break;
+    case 0b1001:
+        itype_OP = instr_type::MULH;
+        break;
+    case 0b1010:
+        itype_OP = instr_type::MULHSU;
+        break;
+    case 0b1011:
+        itype_OP = instr_type::MULHU;
+        break;
+    case 0b1100:
+        itype_OP = instr_type::DIV;
+        itype_OP_32 = instr_type::DIVW;
+        break;
+    case 0b1101:
+        itype_OP = instr_type::DIVU;
+        itype_OP_32 = instr_type::DIVUW;
+        break;
+    case 0b1110:
+        itype_OP = instr_type::REM;
+        itype_OP_32 = instr_type::REMW;
+        break;
+    case 0b1111:
+        itype_OP = instr_type::REMU;
+        itype_OP_32 = instr_type::REMUW;
+        break;
     default:
         return instr_info{.itype = instr_type::INVALID};
     }

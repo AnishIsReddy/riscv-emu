@@ -367,7 +367,175 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
         return out;
     }
 
-    default:
+    case instr_type::MUL: {
+        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+        out.val = reg_file[instr.rs1] * reg_file[instr.rs2];
         return out;
+    }
+
+    case instr_type::MULH: {
+        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+
+        auto op1 = static_cast<__int128_t>(static_cast<int64_t>(reg_file[instr.rs1]));
+        auto op2 = static_cast<__int128_t>(static_cast<int64_t>(reg_file[instr.rs2]));
+        out.val = op1 * op2 >> 64;
+
+        return out;
+    }
+
+    case instr_type::MULHSU: {
+        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+
+        auto op1 = static_cast<__int128_t>(static_cast<int64_t>(reg_file[instr.rs1]));
+        auto op2 = static_cast<__uint128_t>(reg_file[instr.rs2]);
+        out.val = static_cast<__int128_t>(op1 * op2) >> 64;
+
+        return out;
+    }
+
+    case instr_type::MULHU: {
+        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+
+        auto op1 = static_cast<__uint128_t>(reg_file[instr.rs1]);
+        auto op2 = static_cast<__uint128_t>(reg_file[instr.rs2]);
+        out.val = op1 * op2 >> 64;
+
+        return out;
+    }
+
+    case instr_type::DIV: {
+        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+
+        if (reg_file[instr.rs2] == 0) {
+            out.val = ~0;
+        }
+        else if (reg_file[instr.rs1] == INT64_MIN && reg_file[instr.rs2] == -1) {
+            out.val = INT64_MIN;
+        }
+        else {
+            out.val = static_cast<int64_t>(reg_file[instr.rs1]) / static_cast<int64_t>(reg_file[instr.rs2]);
+        }
+
+        return out;
+    }
+
+    case instr_type::DIVU : {
+        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+
+        if (reg_file[instr.rs2] == 0) {
+            out.val = ~0;
+        }
+        else {
+            out.val = reg_file[instr.rs1] / reg_file[instr.rs2];
+        }
+
+        return out;
+    }
+
+    case instr_type::REM: {
+        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+
+        if (reg_file[instr.rs2] == 0) {
+            out.val = reg_file[instr.rs1];
+        }
+        else if (reg_file[instr.rs1] == INT64_MIN && reg_file[instr.rs2] == -1) {
+            out.val = 0;
+        }
+        else {
+            out.val = static_cast<int64_t>(reg_file[instr.rs1]) % static_cast<int64_t>(reg_file[instr.rs2]);
+        }
+        return out;
+    }
+
+    case instr_type::REMU: {
+        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+
+        if (reg_file[instr.rs2] == 0) {
+            out.val = reg_file[instr.rs1];
+        }
+        else {
+            out.val = reg_file[instr.rs1] % reg_file[instr.rs2];
+        }
+
+        return out;
+    }
+
+    case instr_type::MULW: {
+        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+        out.val = sign_extend((reg_file[instr.rs1] & MASK_32) * (reg_file[instr.rs2] & MASK_32), 32);
+        return out;
+    }
+    
+    case instr_type::DIVW: {
+        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+
+        auto op1 = static_cast<int32_t>(reg_file[instr.rs1]);
+        auto op2 = static_cast<int32_t>(reg_file[instr.rs2]);
+
+        if (op2 == 0) {
+            out.val = ~0;
+        }
+        else if (op1 == INT32_MIN && op2 == -1) {
+            out.val = sign_extend(INT32_MIN, 32);
+        }
+        else {
+            out.val = sign_extend(static_cast<uint64_t>(op1 / op2) & MASK_32, 32);
+        }
+
+        return out;
+    }
+
+    case instr_type::DIVUW: {
+        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+
+        auto op1 = reg_file[instr.rs1] & MASK_32;
+        auto op2 = reg_file[instr.rs2] & MASK_32;
+
+        if (op2 == 0) {
+            out.val = ~0;
+        }
+        else {
+            out.val = sign_extend(op1 / op2, 32);
+        }
+
+        return out;
+    }
+
+    case instr_type::REMW: {
+        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+
+        auto op1 = static_cast<int32_t>(reg_file[instr.rs1]);
+        auto op2 = static_cast<int32_t>(reg_file[instr.rs2]);
+
+        if (op2 == 0) {
+            out.val = op1;
+        }
+        else if (op1 == INT32_MIN && op2 == -1) {
+            out.val = 0;
+        }
+        else {
+            out.val = sign_extend(static_cast<uint64_t>(op1 % op2) & MASK_32, 32);
+        }
+
+        return out;
+    }
+
+    case instr_type::REMUW: {
+        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+
+        auto op1 = reg_file[instr.rs1] & MASK_32;
+        auto op2 = reg_file[instr.rs2] & MASK_32;
+
+        if (op2 == 0) {
+            out.val = op1;
+        }
+        else {
+            out.val = sign_extend(op1 % op2, 32);
+        }
+
+        return out;
+    }
+
+    default: return out;
     }
 }
