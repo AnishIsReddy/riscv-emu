@@ -12,3 +12,5 @@ CMakeCache.txt
 /CMakeFiles
 /.cmake
 /Testing
+
+riscv_emu
