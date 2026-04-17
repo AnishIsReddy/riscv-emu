@@ -5,6 +5,8 @@
 #ifndef RISCV_EMU_DEFS_H
 #define RISCV_EMU_DEFS_H
 
+#include <cstdint>
+
 namespace riscv_emu
 {
     constexpr uint64_t ADDR_WIDTH = 64; // 64-bit system
