@@ -62,6 +62,6 @@ void hart::dump_regs(std::ostream& os) const {
     os << "PC: " << std::hex << std::setfill('0') << std::setw(16) << pc << "\n";
     for (int i = 0; i < REG_COUNT; i++) {
         os << "x" << std::dec << std::setw(2) << i << ": 0x"
-           << std::hex << std::setfill('0') << std::setw(16) << reg_file[i] << "\n";
+           << std::hex << std::uppercase << std::setfill('0') << std::setw(16) << reg_file[i] << "\n";
     }
 }

@@ -38,10 +38,10 @@ void ram::dump(std::ostream& os) const
 
         if (all_zero) continue;
 
-        os << std::hex << std::setfill('0') << std::setw(8) << i << ": ";
+        os << std::hex << std::uppercase << std::setfill('0') << std::setw(8) << i << ": ";
 
         for (std::size_t j = i; j < i + 16 && j < MEM_SIZE; j++) {
-            os << std::setw(2) << static_cast<unsigned>(memory[j]) << " ";
+            os << std::uppercase << std::setw(2) << static_cast<unsigned>(memory[j]) << " ";
         }
 
         os << "\n";
