@@ -11,11 +11,16 @@ std::vector<uint8_t> load_binary_file(const std::string& filename) {
     return binary;
 }
 
-int main()
+int main(const int argc, char* argv[])
 {
     riscv_emu::machine machine;
 
-    auto binary = load_binary_file("test.bin");
+    std::string filename = "test.bin";
+    if (argc == 2) {
+        filename = std::string(argv[1]);
+    }
+
+    const auto binary = load_binary_file(filename);
     machine.load(binary.data(), binary.size());
     machine.run();
     machine.dump(std::cout);
