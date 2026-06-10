@@ -27,7 +27,8 @@ namespace riscv_emu
         LOAD = 0b0000011,
         STORE = 0b0100011,
         SYSTEM = 0b1110011,
-        MISC_MEM = 0b0001111
+        MISC_MEM = 0b0001111,
+        AMO = 0b0101111
     };
 
     enum class instr_type
@@ -40,11 +41,17 @@ namespace riscv_emu
         // RV64i instructions
         LWU, LD, SD, ADDIW, SLLIW, SRLIW, SRAIW, ADDW, SUBW, SLLW, SRLW, SRAW,
 
-        // RV32M instructions
+        // RV32m instructions
         MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU,
 
-        // RV64M instructions
-        MULW, DIVW, DIVUW, REMW, REMUW
+        // RV64m instructions
+        MULW, DIVW, DIVUW, REMW, REMUW,
+
+        // RV32a instructions
+        LR_W, SC_W, AMOSWAP_W, AMOADD_W, AMOXOR_W, AMOAND_W, AMOOR_W, AMOMIN_W, AMOMAX_W, AMOMINU_W, AMOMAXU_W,
+
+        // RV64a instructions
+        LR_D, SC_D, AMOSWAP_D, AMOADD_D, AMOXOR_D, AMOAND_D, AMOOR_D, AMOMIN_D, AMOMAX_D, AMOMINU_D, AMOMAXU_D
     };
 
     struct instr_info
@@ -72,7 +79,7 @@ namespace riscv_emu
         uint64_t val;
         uint64_t mem_addr;
         uint8_t mem_size;
-        bool zero_extend_val;
+        bool sign_extend_val;
 
         uint64_t new_pc;
     };

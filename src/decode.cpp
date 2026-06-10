@@ -7,105 +7,175 @@
 
 using namespace riscv_emu;
 
-instr_info decode_rtype(const uint32_t raw)
+inline instr_type resolve_instr_type_OP(const uint8_t func3, const uint8_t func7)
 {
-    const uint8_t func3 = raw >> 12 & 0x7;
-    const uint8_t func7 = raw >> 25 & 0x7F;
-
+    using enum instr_type;
     const uint16_t func = func7 << 3 | func3;
-    const auto op = static_cast<opcode>(raw & 0x7F);
-
-    instr_type itype;
-    auto itype_OP = instr_type::INVALID;
-    auto itype_OP_32 = instr_type::INVALID;
 
     switch (func) {
     case 0b000:
-        itype_OP = instr_type::ADD;
-        itype_OP_32 = instr_type::ADDW;
-        break;
+        return ADD;
     case 0b0100000000:
-        itype_OP = instr_type::SUB;
-        itype_OP_32 = instr_type::SUBW;
-        break;
+        return SUB;
     case 0b001:
-        itype_OP = instr_type::SLL;
-        itype_OP_32 = instr_type::SLLW;
-        break;
+        return SLL;
     case 0b010:
-        itype_OP = instr_type::SLT;
-        break;
+        return SLT;
     case 0b011:
-        itype_OP = instr_type::SLTU;
-        break;
+        return SLTU;
     case 0b100:
-        itype_OP = instr_type::XOR;
-        break;
+        return XOR;
     case 0b101:
-        itype_OP = instr_type::SRL;
-        itype_OP_32 = instr_type::SRLW;
-        break;
+        return SRL;
     case 0b0100000101:
-        itype_OP = instr_type::SRA;
-        itype_OP_32 = instr_type::SRAW;
-        break;
+        return SRA;
     case 0b110:
-        itype_OP = instr_type::OR;
-        break;
+        return OR;
     case 0b111:
-        itype_OP = instr_type::AND;
-        break;
+        return AND;
     case 0b1000:
-        itype_OP = instr_type::MUL;
-        itype_OP_32 = instr_type::MULW;
-        break;
+        return MUL;
     case 0b1001:
-        itype_OP = instr_type::MULH;
-        break;
+        return MULH;
     case 0b1010:
-        itype_OP = instr_type::MULHSU;
-        break;
+        return MULHSU;
     case 0b1011:
-        itype_OP = instr_type::MULHU;
-        break;
+        return MULHU;
     case 0b1100:
-        itype_OP = instr_type::DIV;
-        itype_OP_32 = instr_type::DIVW;
-        break;
+        return DIV;
     case 0b1101:
-        itype_OP = instr_type::DIVU;
-        itype_OP_32 = instr_type::DIVUW;
-        break;
+        return DIVU;
     case 0b1110:
-        itype_OP = instr_type::REM;
-        itype_OP_32 = instr_type::REMW;
-        break;
+        return REM;
     case 0b1111:
-        itype_OP = instr_type::REMU;
-        itype_OP_32 = instr_type::REMUW;
+        return REMU;
+    default:
+        return INVALID;
+    }
+}
+
+inline instr_type resolve_instr_type_OP_32(const uint8_t func3, const uint8_t func7)
+{
+    using enum instr_type;
+    const uint16_t func = func7 << 3 | func3;
+
+    switch (func) {
+    case 0b000:
+        return ADDW;
+    case 0b0100000000:
+        return SUBW;
+    case 0b001:
+        return SLLW;
+    case 0b101:
+        return SRLW;
+    case 0b0100000101:
+        return SRAW;
+    case 0b1000:
+        return MULW;
+    case 0b1100:
+        return DIVW;
+    case 0b1101:
+        return DIVUW;
+    case 0b1110:
+        return REMW;
+    case 0b1111:
+        return REMUW;
+    default:
+        return INVALID;
+    }
+}
+
+inline instr_type resolve_instr_type_AMO(const uint8_t func3, const uint8_t func7)
+{
+    using enum instr_type;
+    const bool is_double_op = func3 == 0b011;
+
+    auto itype_w = INVALID;
+    auto itype_d = INVALID;
+
+    switch (func7) {
+    case 0b00010:
+        itype_w = LR_W;
+        itype_d = LR_D;
+        break;
+    case 0b00011:
+        itype_w = SC_W;
+        itype_d = SC_D;
+        break;
+    case 0b00001:
+        itype_w = AMOSWAP_W;
+        itype_d = AMOSWAP_D;
+        break;
+    case 0b00000:
+        itype_w = AMOADD_W;
+        itype_d = AMOADD_D;
+        break;
+    case 0b00100:
+        itype_w = AMOXOR_W;
+        itype_d = AMOXOR_D;
+        break;
+    case 0b01100:
+        itype_w = AMOAND_W;
+        itype_d = AMOAND_D;
+        break;
+    case 0b01000:
+        itype_w = AMOOR_W;
+        itype_d = AMOOR_D;
+        break;
+    case 0b10000:
+        itype_w = AMOMIN_W;
+        itype_d = AMOMIN_D;
+        break;
+    case 0b10100:
+        itype_w = AMOMAX_W;
+        itype_d = AMOMAX_D;
+        break;
+    case 0b11000:
+        itype_w = AMOMINU_W;
+        itype_d = AMOMINU_D;
+        break;
+    case 0b11100:
+        itype_w = AMOMAXU_W;
+        itype_d = AMOMAXU_D;
         break;
     default:
-        return instr_info{.itype = instr_type::INVALID};
+        return INVALID;
     }
 
-    if (op == opcode::OP) {
-        itype = itype_OP;
+    if (is_double_op) {
+        return itype_d;
     }
-    else if (op == opcode::OP_32) {
-        itype = itype_OP_32;
-    }
-    else {
-        return instr_info{.itype = instr_type::INVALID};
+    return itype_w;
+}
+
+instr_info decode_rtype(const uint32_t raw)
+{
+    const auto op = static_cast<opcode>(raw & 0x7F);
+    const uint8_t func3 = raw >> 12 & 0x7;
+    const uint8_t func7 = raw >> 25 & 0x7F;
+
+    instr_type itype;
+
+    switch (op) {
+    case opcode::OP:
+        itype = resolve_instr_type_OP(func3, func7);
+        break;
+    case opcode::OP_32:
+        itype = resolve_instr_type_OP_32(func3, func7);
+        break;
+    case opcode::AMO:
+        itype = resolve_instr_type_AMO(func3, func7);
+        break;
+    default:
+        itype = instr_type::INVALID;
     }
 
-    const auto out = instr_info{
+    return instr_info{
         .itype = itype,
         .rd = static_cast<uint8_t>(raw >> 7 & 0x1F),
         .rs1 = static_cast<uint8_t>(raw >> 15 & 0x1F),
         .rs2 = static_cast<uint8_t>(raw >> 20 & 0x1F)
     };
-
-    return out;
 }
 
 instr_info decode_itype(const uint32_t raw)
@@ -335,24 +405,26 @@ instr_info riscv_emu::decode(const uint32_t raw)
     const auto op = static_cast<opcode>(raw & 0x7F);
 
     switch (op) {
-    case opcode::OP:
-    case opcode::OP_32:
+        using enum opcode;
+    case OP:
+    case OP_32:
+    case AMO:
         return decode_rtype(raw);
-    case opcode::OP_IMM:
-    case opcode::OP_IMM_32:
-    case opcode::LOAD:
-    case opcode::JALR:
-    case opcode::MISC_MEM:
-    case opcode::SYSTEM:
+    case OP_IMM:
+    case OP_IMM_32:
+    case LOAD:
+    case JALR:
+    case MISC_MEM:
+    case SYSTEM:
         return decode_itype(raw);
-    case opcode::STORE:
+    case STORE:
         return decode_stype(raw);
-    case opcode::BRANCH:
+    case BRANCH:
         return decode_btype(raw);
-    case opcode::LUI:
-    case opcode::AUIPC:
+    case LUI:
+    case AUIPC:
         return decode_utype(raw);
-    case opcode::JAL:
+    case JAL:
         return decode_jtype(raw);
     default:
         return instr_info{.itype = instr_type::INVALID};
