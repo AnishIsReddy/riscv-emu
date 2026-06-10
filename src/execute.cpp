@@ -108,6 +108,7 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
         out.type = exec_result_type::UPDATE_RD_FROM_MEM;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 1;
+        out.zero_extend_val = true;
         return out;
     }
 
@@ -115,6 +116,7 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
         out.type = exec_result_type::UPDATE_RD_FROM_MEM;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 2;
+        out.zero_extend_val = true;
         return out;
     }
 
@@ -122,6 +124,7 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
         out.type = exec_result_type::UPDATE_RD_FROM_MEM;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 4;
+        out.zero_extend_val = true;
         return out;
     }
 
@@ -129,7 +132,6 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
         out.type = exec_result_type::UPDATE_RD_FROM_MEM;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 1;
-        out.zero_extend_val = true;
         return out;
     }
 
@@ -137,7 +139,6 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
         out.type = exec_result_type::UPDATE_RD_FROM_MEM;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 2;
-        out.zero_extend_val = true;
         return out;
     }
 
@@ -290,7 +291,6 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
         out.type = exec_result_type::UPDATE_RD_FROM_MEM;
         out.mem_addr = reg_file[instr.rs1] + instr.imm;
         out.mem_size = 4;
-        out.zero_extend_val = true;
         return out;
     }
 

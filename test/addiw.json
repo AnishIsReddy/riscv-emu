@@ -1,0 +1,7 @@
+{
+  "name": "addiw",
+  "regs": {
+    "x02": "0xFFFFFFFF80000000",
+    "x03": "0xFFFFFFFFFFFFFFFF"
+  }
+}
