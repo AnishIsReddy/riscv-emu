@@ -1,7 +1,8 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.30)
 project(riscv_emu)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
+
 
 add_executable(riscv_emu src/main.cpp
         src/hart.cpp
@@ -18,3 +19,7 @@ add_executable(riscv_emu src/main.cpp
         src/machine.cpp
         src/machine.h
 )
+
+target_compile_options(riscv_emu PRIVATE -Wall -Wextra -Werror=return-type -Werror=switch)
+#target_compile_options(riscv_emu PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
+#target_link_options(riscv_emu PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)

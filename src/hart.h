@@ -23,6 +23,8 @@ namespace riscv_emu {
         uint64_t pc = 0;
         uint64_t reg_file[REG_COUNT] = {};
         bus* mem_bus;
+
+        template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
     };
 
 } // riscv_emu

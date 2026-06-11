@@ -6,6 +6,7 @@
 #define RISCV_EMU_DEFS_H
 
 #include <cstdint>
+#include <variant>
 
 namespace riscv_emu
 {
@@ -15,6 +16,7 @@ namespace riscv_emu
 
     enum class opcode
     {
+
         LUI = 0b0110111,
         AUIPC = 0b0010111,
         JAL = 0b1101111,
@@ -63,27 +65,18 @@ namespace riscv_emu
         uint8_t rs2 = 0;
     };
 
-    enum class exec_result_type
+    struct instr_effect
     {
-        NO_UPDATE,
-        UPDATE_RD_FROM_VAL,
-        UPDATE_RD_FROM_MEM,
-        UPDATE_MEM_FROM_VAL,
-    };
+        struct no_effect{};
+        struct update_rd {uint8_t rd; uint64_t value; };
+        struct load_rd_from_mem {uint8_t rd; uint64_t addr; uint8_t size; bool sign_ext; };
+        struct store_mem {uint64_t addr; uint64_t value; uint8_t size; };
 
-    struct exec_result
-    {
-        exec_result_type type;
+        using effect_type = std::variant<no_effect, update_rd, load_rd_from_mem, store_mem>;
 
-        uint8_t rd;
-        uint64_t val;
-        uint64_t mem_addr;
-        uint8_t mem_size;
-        bool sign_extend_val;
-
+        effect_type effect;
         uint64_t new_pc;
     };
-
 
     //--------------------------------------------
     // Helper Funcs

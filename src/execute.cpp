@@ -10,17 +10,10 @@
 
 using namespace riscv_emu;
 
-exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COUNT], uint64_t pc)
+instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COUNT], uint64_t pc)
 {
-    exec_result out = {
-        .type = exec_result_type::NO_UPDATE,
-
-        .rd = instr.rd,
-        .val = 0,
-        .mem_addr = 0,
-        .mem_size = 0,
-        .zero_extend_val = false,
-
+     instr_effect out = {
+        .effect = instr_effect::no_effect{},
         .new_pc = pc + 4
     };
 
@@ -30,512 +23,724 @@ exec_result riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COU
     const uint8_t shift_amt_rs2_32 = reg_file[instr.rs2] & 0x1F;
 
     switch (instr.itype) {
-    case instr_type::LUI: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = instr.imm;
+        using enum instr_type;
+
+    case LUI: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = static_cast<uint64_t>(instr.imm)
+        };
         return out;
     }
 
-    case instr_type::AUIPC: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = pc + instr.imm;
+    case AUIPC: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = pc + instr.imm
+        };
         return out;
     }
 
-    case instr_type::JAL: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = pc + 4;
+    case JAL: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = pc + 4
+        };
         out.new_pc = pc + instr.imm;
         return out;
     }
 
-    case instr_type::JALR: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = pc + 4;
+    case JALR: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = pc + 4
+        };
         out.new_pc = (instr.imm + reg_file[instr.rs1]) & ~0x1;
         return out;
     }
 
-    case instr_type::BEQ: {
-        out.type = exec_result_type::NO_UPDATE;
+    case BEQ: {
         if (reg_file[instr.rs1] == reg_file[instr.rs2]) {
             out.new_pc = pc + instr.imm;
         }
         return out;
     }
 
-    case instr_type::BNE: {
-        out.type = exec_result_type::NO_UPDATE;
+    case BNE: {
         if (reg_file[instr.rs1] != reg_file[instr.rs2]) {
             out.new_pc = pc + instr.imm;
         }
         return out;
     }
 
-    case instr_type::BLT: {
-        out.type = exec_result_type::NO_UPDATE;
+    case BLT: {
         if (static_cast<int64_t>(reg_file[instr.rs1]) < static_cast<int64_t>(reg_file[instr.rs2])) {
             out.new_pc = pc + instr.imm;
         }
         return out;
     }
 
-    case instr_type::BGE: {
-        out.type = exec_result_type::NO_UPDATE;
+    case BGE: {
         if (static_cast<int64_t>(reg_file[instr.rs1]) >= static_cast<int64_t>(reg_file[instr.rs2])) {
             out.new_pc = pc + instr.imm;
         }
         return out;
     }
 
-    case instr_type::BLTU: {
-        out.type = exec_result_type::NO_UPDATE;
+    case BLTU: {
         if (reg_file[instr.rs1] < reg_file[instr.rs2]) {
             out.new_pc = pc + instr.imm;
         }
         return out;
     }
 
-    case instr_type::BGEU: {
-        out.type = exec_result_type::NO_UPDATE;
+    case BGEU: {
         if (reg_file[instr.rs1] >= reg_file[instr.rs2]) {
             out.new_pc = pc + instr.imm;
         }
         return out;
     }
 
-    case instr_type::LB: {
-        out.type = exec_result_type::UPDATE_RD_FROM_MEM;
-        out.mem_addr = reg_file[instr.rs1] + instr.imm;
-        out.mem_size = 1;
-        out.zero_extend_val = true;
+    case LB: {
+        out.effect = instr_effect::load_rd_from_mem
+        {
+            .rd = instr.rd,
+            .addr = reg_file[instr.rs1] + instr.imm,
+            .size = 1,
+            .sign_ext = true
+        };
         return out;
     }
 
-    case instr_type::LH: {
-        out.type = exec_result_type::UPDATE_RD_FROM_MEM;
-        out.mem_addr = reg_file[instr.rs1] + instr.imm;
-        out.mem_size = 2;
-        out.zero_extend_val = true;
+    case LH: {
+        out.effect = instr_effect::load_rd_from_mem
+        {
+            .rd = instr.rd,
+            .addr = reg_file[instr.rs1] + instr.imm,
+            .size = 2,
+            .sign_ext = true
+        };
         return out;
     }
 
-    case instr_type::LW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_MEM;
-        out.mem_addr = reg_file[instr.rs1] + instr.imm;
-        out.mem_size = 4;
-        out.zero_extend_val = true;
+    case LW: {
+        out.effect = instr_effect::load_rd_from_mem
+        {
+            .rd = instr.rd,
+            .addr = reg_file[instr.rs1] + instr.imm,
+            .size = 4,
+            .sign_ext = true
+        };
         return out;
     }
 
-    case instr_type::LBU: {
-        out.type = exec_result_type::UPDATE_RD_FROM_MEM;
-        out.mem_addr = reg_file[instr.rs1] + instr.imm;
-        out.mem_size = 1;
+    case LBU: {
+        out.effect = instr_effect::load_rd_from_mem
+        {
+            .rd = instr.rd,
+            .addr = reg_file[instr.rs1] + instr.imm,
+            .size = 4,
+            .sign_ext = false
+        };
         return out;
     }
 
-    case instr_type::LHU: {
-        out.type = exec_result_type::UPDATE_RD_FROM_MEM;
-        out.mem_addr = reg_file[instr.rs1] + instr.imm;
-        out.mem_size = 2;
+    case LHU: {
+        out.effect = instr_effect::load_rd_from_mem
+        {
+            .rd = instr.rd,
+            .addr = reg_file[instr.rs1] + instr.imm,
+            .size = 2,
+            .sign_ext = false
+        };
         return out;
     }
 
-    case instr_type::SB: {
-        out.type = exec_result_type::UPDATE_MEM_FROM_VAL;
-        out.val = reg_file[instr.rs2] & 0xFF;
-        out.mem_addr = reg_file[instr.rs1] + instr.imm;
-        out.mem_size = 1;
+    case SB: {
+        out.effect = instr_effect::store_mem
+        {
+            .addr = reg_file[instr.rs1] + instr.imm,
+            .value = reg_file[instr.rs2] & 0xFF,
+            .size = 1
+        };
         return out;
     }
 
-    case instr_type::SH: {
-        out.type = exec_result_type::UPDATE_MEM_FROM_VAL;
-        out.val = reg_file[instr.rs2] & 0xFFFF;
-        out.mem_addr = reg_file[instr.rs1] + instr.imm;
-        out.mem_size = 2;
+    case SH: {
+        out.effect = instr_effect::store_mem
+        {
+            .addr = reg_file[instr.rs1] + instr.imm,
+            .value = reg_file[instr.rs2] & 0xFFFF,
+            .size = 2
+        };
         return out;
     }
 
-    case instr_type::SW: {
-        out.type = exec_result_type::UPDATE_MEM_FROM_VAL;
-        out.val = reg_file[instr.rs2] & MASK_32;
-        out.mem_addr = reg_file[instr.rs1] + instr.imm;
-        out.mem_size = 4;
+    case SW: {
+        out.effect = instr_effect::store_mem
+        {
+            .addr = reg_file[instr.rs1] + instr.imm,
+            .value = reg_file[instr.rs2] & MASK_32,
+            .size = 4
+        };
         return out;
     }
 
-    case instr_type::ADDI: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] + instr.imm;
+    case ADDI: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = reg_file[instr.rs1] + instr.imm
+        };
         return out;
     }
 
-    case instr_type::SLTI: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = static_cast<int64_t>(reg_file[instr.rs1]) < instr.imm;
+    case SLTI: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = static_cast<int64_t>(reg_file[instr.rs1]) < instr.imm
+        };
         return out;
     }
 
-    case instr_type::SLTIU: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] < static_cast<uint64_t>(instr.imm);
+    case SLTIU: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = reg_file[instr.rs1] < static_cast<uint64_t>(instr.imm)
+        };
         return out;
     }
 
-    case instr_type::XORI: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] ^ instr.imm;
+    case XORI: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = reg_file[instr.rs1] ^ instr.imm
+        };
         return out;
     }
 
-    case instr_type::ORI: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] | instr.imm;
+    case ORI: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = reg_file[instr.rs1] | instr.imm
+        };
         return out;
     }
 
-    case instr_type::ANDI: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] & instr.imm;
+    case ANDI: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = reg_file[instr.rs1] & instr.imm
+        };
         return out;
     }
 
-    case instr_type::SLLI: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] << shift_amt_imm;
+    case SLLI: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = reg_file[instr.rs1] << shift_amt_imm
+        };
         return out;
     }
 
-    case instr_type::SRLI: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = logical_shift_right(reg_file[instr.rs1], shift_amt_imm);
+    case SRLI: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = logical_shift_right(reg_file[instr.rs1], shift_amt_imm)
+        };
         return out;
     }
 
-    case instr_type::SRAI: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = arith_shift_right(reg_file[instr.rs1], shift_amt_imm);
+    case SRAI: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = arith_shift_right(reg_file[instr.rs1], shift_amt_imm)
+        };
         return out;
     }
 
-    case instr_type::ADD: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] + reg_file[instr.rs2];
+    case ADD: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = reg_file[instr.rs1] + reg_file[instr.rs2]
+        };
         return out;
     }
 
-    case instr_type::SUB: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] - reg_file[instr.rs2];
+    case SUB: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = reg_file[instr.rs1] - reg_file[instr.rs2]
+        };
         return out;
     }
 
-    case instr_type::SLL: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] << shift_amt_rs2;
+    case SLL: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = reg_file[instr.rs1] << reg_file[instr.rs2]
+        };
         return out;
     }
 
-    case instr_type::SLT: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = static_cast<int64_t>(reg_file[instr.rs1]) < static_cast<int64_t>(reg_file[instr.rs2]);
+    case SLT: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = static_cast<int64_t>(reg_file[instr.rs1]) < static_cast<int64_t>(reg_file[instr.rs2])
+        };
         return out;
     }
 
-    case instr_type::SLTU: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] < reg_file[instr.rs2];
+    case SLTU: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = reg_file[instr.rs1] < reg_file[instr.rs2]
+        };
         return out;
     }
 
-    case instr_type::XOR: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] ^ reg_file[instr.rs2];
+    case XOR: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = reg_file[instr.rs1] ^ reg_file[instr.rs2]
+        };
         return out;
     }
 
-    case instr_type::SRL: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = logical_shift_right(reg_file[instr.rs1], shift_amt_rs2);
+    case SRL: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = logical_shift_right(reg_file[instr.rs1], shift_amt_rs2)
+        };
         return out;
     }
 
-    case instr_type::SRA: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = arith_shift_right(reg_file[instr.rs1], shift_amt_rs2);
+    case SRA: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = arith_shift_right(reg_file[instr.rs1], shift_amt_rs2)
+        };
         return out;
     }
 
-    case instr_type::OR: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] | reg_file[instr.rs2];
+    case OR: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = reg_file[instr.rs1] | reg_file[instr.rs2]
+        };
         return out;
     }
 
-    case instr_type::AND: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] & reg_file[instr.rs2];
-        return out;
-    }
-    case instr_type::FENCE:
-    case instr_type::FENCE_TSO:
-    case instr_type::PAUSE:
-    case instr_type::ECALL:
-    case instr_type::EBREAK:
-        return out;
-
-
-    case instr_type::LWU: {
-        out.type = exec_result_type::UPDATE_RD_FROM_MEM;
-        out.mem_addr = reg_file[instr.rs1] + instr.imm;
-        out.mem_size = 4;
+    case AND: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = reg_file[instr.rs1] & reg_file[instr.rs2]
+        };
         return out;
     }
 
-    case instr_type::LD: {
-        out.type = exec_result_type::UPDATE_RD_FROM_MEM;
-        out.mem_addr = reg_file[instr.rs1] + instr.imm;
-        out.mem_size = 8;
+    case FENCE:
+    case FENCE_TSO:
+    case PAUSE:
+    case ECALL:
+    case EBREAK:
+        return out;
+
+    case LWU: {
+        out.effect = instr_effect::load_rd_from_mem
+        {
+            .rd = instr.rd,
+            .addr = reg_file[instr.rs1] + instr.imm,
+            .size = 4,
+            .sign_ext = false
+        };
         return out;
     }
 
-    case instr_type::SD: {
-        out.type = exec_result_type::UPDATE_MEM_FROM_VAL;
-        out.val = reg_file[instr.rs2];
-        out.mem_addr = reg_file[instr.rs1] + instr.imm;
-        out.mem_size = 8;
+    case LD: {
+        out.effect = instr_effect::load_rd_from_mem
+        {
+            .rd = instr.rd,
+            .addr = reg_file[instr.rs1] + instr.imm,
+            .size = 8,
+            .sign_ext = true
+        };
         return out;
     }
 
-    case instr_type::ADDIW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] & MASK_32) + (instr.imm & MASK_32), 32);
+    case SD: {
+        out.effect = instr_effect::store_mem
+        {
+            .addr = reg_file[instr.rs1] + instr.imm,
+            .value = reg_file[instr.rs2],
+            .size = 8
+        };
         return out;
     }
 
-    case instr_type::SLLIW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] << shift_amt_imm_32) & MASK_32 , 32);
+    case ADDIW: {
+        uint64_t val = sign_extend((reg_file[instr.rs1] & MASK_32) + (instr.imm & MASK_32), 32);
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
+
         return out;
     }
 
-    case instr_type::SRLIW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = logical_shift_right(reg_file[instr.rs1] & MASK_32, shift_amt_imm_32);
-        out.val = sign_extend(out.val,32);
+    case SLLIW: {
+        uint64_t val = sign_extend((reg_file[instr.rs1] << shift_amt_imm_32) & MASK_32 , 32);
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
+
         return out;
     }
 
-    case instr_type::SRAIW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend(reg_file[instr.rs1] & MASK_32, 32);
-        out.val = arith_shift_right(out.val, shift_amt_imm_32);
+    case SRLIW: {
+        uint64_t val = logical_shift_right(reg_file[instr.rs1] & MASK_32, shift_amt_imm_32);
+        val = sign_extend(val,32);
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
+
         return out;
     }
 
-    case instr_type::ADDW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] & MASK_32) + (reg_file[instr.rs2] & MASK_32), 32);
+    case SRAIW: {
+        uint64_t val = sign_extend(reg_file[instr.rs1] & MASK_32, 32);
+        val = arith_shift_right(val, shift_amt_imm_32);
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
+
         return out;
     }
 
-    case instr_type::SUBW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] & MASK_32) - (reg_file[instr.rs2] & MASK_32), 32);
+    case ADDW: {
+        uint64_t val = sign_extend((reg_file[instr.rs1] & MASK_32) + (reg_file[instr.rs2] & MASK_32), 32);
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
+
         return out;
     }
 
-    case instr_type::SLLW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] << shift_amt_rs2_32) & MASK_32, 32);
+    case SUBW: {
+        uint64_t val = sign_extend((reg_file[instr.rs1] & MASK_32) - (reg_file[instr.rs2] & MASK_32), 32);
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
+
         return out;
     }
 
-    case instr_type::SRLW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = logical_shift_right(reg_file[instr.rs1] & MASK_32, shift_amt_rs2_32);
-        out.val = sign_extend(out.val, 32);
+    case SLLW: {
+        uint64_t val = sign_extend((reg_file[instr.rs1] << shift_amt_rs2_32) & MASK_32, 32);
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
         return out;
     }
 
-    case instr_type::SRAW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend(reg_file[instr.rs1] & MASK_32, 32);
-        out.val = arith_shift_right(out.val, shift_amt_rs2_32);
+    case SRLW: {
+        uint64_t val = logical_shift_right(reg_file[instr.rs1] & MASK_32, shift_amt_rs2_32);
+        val = sign_extend(val, 32);
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
+
         return out;
     }
 
-    case instr_type::MUL: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = reg_file[instr.rs1] * reg_file[instr.rs2];
+    case SRAW: {
+        uint64_t val = sign_extend(reg_file[instr.rs1] & MASK_32, 32);
+        val = arith_shift_right(val, shift_amt_rs2_32);
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
         return out;
     }
 
-    case instr_type::MULH: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
+    case MUL: {
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = reg_file[instr.rs1] * reg_file[instr.rs2]
+        };
+        return out;
+    }
 
+    case MULH: {
         auto op1 = static_cast<__int128_t>(static_cast<int64_t>(reg_file[instr.rs1]));
         auto op2 = static_cast<__int128_t>(static_cast<int64_t>(reg_file[instr.rs2]));
-        out.val = op1 * op2 >> 64;
+        uint64_t val = op1 * op2 >> 64;
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
 
         return out;
     }
 
-    case instr_type::MULHSU: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-
+    case MULHSU: {
         auto op1 = static_cast<__int128_t>(static_cast<int64_t>(reg_file[instr.rs1]));
         auto op2 = static_cast<__uint128_t>(reg_file[instr.rs2]);
-        out.val = static_cast<__int128_t>(op1 * op2) >> 64;
+        uint64_t val = static_cast<__int128_t>(op1 * op2) >> 64;
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
 
         return out;
     }
 
-    case instr_type::MULHU: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-
+    case MULHU: {
         auto op1 = static_cast<__uint128_t>(reg_file[instr.rs1]);
         auto op2 = static_cast<__uint128_t>(reg_file[instr.rs2]);
-        out.val = op1 * op2 >> 64;
+        uint64_t val = op1 * op2 >> 64;
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
 
         return out;
     }
 
-    case instr_type::DIV: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-
+    case DIV: {
+        uint64_t val;
         if (reg_file[instr.rs2] == 0) {
-            out.val = ~0;
+            val = ~0;
         }
-        else if (reg_file[instr.rs1] == INT64_MIN && reg_file[instr.rs2] == -1) {
-            out.val = INT64_MIN;
+        else if (static_cast<int64_t>(reg_file[instr.rs1]) == INT64_MIN && static_cast<int64_t>(reg_file[instr.rs2]) == -1) {
+            val = INT64_MIN;
         }
         else {
-            out.val = static_cast<int64_t>(reg_file[instr.rs1]) / static_cast<int64_t>(reg_file[instr.rs2]);
+            val = static_cast<int64_t>(reg_file[instr.rs1]) / static_cast<int64_t>(reg_file[instr.rs2]);
         }
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
 
         return out;
     }
 
-    case instr_type::DIVU : {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-
+    case DIVU : {
+        uint64_t val;
         if (reg_file[instr.rs2] == 0) {
-            out.val = ~0;
+            val = ~0;
         }
         else {
-            out.val = reg_file[instr.rs1] / reg_file[instr.rs2];
+            val = reg_file[instr.rs1] / reg_file[instr.rs2];
         }
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
 
         return out;
     }
 
-    case instr_type::REM: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-
+    case REM: {
+        uint64_t val;
         if (reg_file[instr.rs2] == 0) {
-            out.val = reg_file[instr.rs1];
+            val = reg_file[instr.rs1];
         }
-        else if (reg_file[instr.rs1] == INT64_MIN && reg_file[instr.rs2] == -1) {
-            out.val = 0;
+        else if (static_cast<int64_t>(reg_file[instr.rs1]) == INT64_MIN && static_cast<int64_t>(reg_file[instr.rs2]) == -1) {
+            val = 0;
         }
         else {
-            out.val = static_cast<int64_t>(reg_file[instr.rs1]) % static_cast<int64_t>(reg_file[instr.rs2]);
+            val = static_cast<int64_t>(reg_file[instr.rs1]) % static_cast<int64_t>(reg_file[instr.rs2]);
         }
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
+
         return out;
     }
 
-    case instr_type::REMU: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-
+    case REMU: {
+        uint64_t val;
         if (reg_file[instr.rs2] == 0) {
-            out.val = reg_file[instr.rs1];
+            val = reg_file[instr.rs1];
         }
         else {
-            out.val = reg_file[instr.rs1] % reg_file[instr.rs2];
+            val = reg_file[instr.rs1] % reg_file[instr.rs2];
         }
 
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
+
         return out;
     }
 
-    case instr_type::MULW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-        out.val = sign_extend((reg_file[instr.rs1] & MASK_32) * (reg_file[instr.rs2] & MASK_32), 32);
+    case MULW: {
+        uint64_t val = sign_extend((reg_file[instr.rs1] & MASK_32) * (reg_file[instr.rs2] & MASK_32), 32);
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
+
         return out;
     }
-    
-    case instr_type::DIVW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
 
+    case DIVW: {
         auto op1 = static_cast<int32_t>(reg_file[instr.rs1]);
         auto op2 = static_cast<int32_t>(reg_file[instr.rs2]);
 
+        uint64_t val;
         if (op2 == 0) {
-            out.val = ~0;
+            val = ~0;
         }
         else if (op1 == INT32_MIN && op2 == -1) {
-            out.val = sign_extend(INT32_MIN, 32);
+            val = sign_extend(INT32_MIN, 32);
         }
         else {
-            out.val = sign_extend(static_cast<uint64_t>(op1 / op2) & MASK_32, 32);
+            val = sign_extend(static_cast<uint64_t>(op1 / op2) & MASK_32, 32);
         }
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
 
         return out;
     }
 
-    case instr_type::DIVUW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-
+    case DIVUW: {
         auto op1 = reg_file[instr.rs1] & MASK_32;
         auto op2 = reg_file[instr.rs2] & MASK_32;
 
+        uint64_t val;
         if (op2 == 0) {
-            out.val = ~0;
+            val = ~0;
         }
         else {
-            out.val = sign_extend(op1 / op2, 32);
+            val = sign_extend(op1 / op2, 32);
         }
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
 
         return out;
     }
 
-    case instr_type::REMW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-
+    case REMW: {
         auto op1 = static_cast<int32_t>(reg_file[instr.rs1]);
         auto op2 = static_cast<int32_t>(reg_file[instr.rs2]);
 
+        uint64_t val;
         if (op2 == 0) {
-            out.val = op1;
+            val = op1;
         }
         else if (op1 == INT32_MIN && op2 == -1) {
-            out.val = 0;
+            val = 0;
         }
         else {
-            out.val = sign_extend(static_cast<uint64_t>(op1 % op2) & MASK_32, 32);
+            val = sign_extend(op1 % op2, 32);
         }
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
 
         return out;
     }
 
-    case instr_type::REMUW: {
-        out.type = exec_result_type::UPDATE_RD_FROM_VAL;
-
+    case REMUW: {
         auto op1 = reg_file[instr.rs1] & MASK_32;
         auto op2 = reg_file[instr.rs2] & MASK_32;
 
+        uint64_t val;
         if (op2 == 0) {
-            out.val = op1;
+            val = op1;
         }
         else {
-            out.val = sign_extend(op1 % op2, 32);
+            val = sign_extend(op1 % op2, 32);
         }
+
+        out.effect = instr_effect::update_rd
+        {
+            .rd = instr.rd,
+            .value = val
+        };
 
         return out;
     }
 
-    default: return out;
+    default:
+        return out;
     }
 }
