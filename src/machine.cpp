@@ -11,7 +11,7 @@ using namespace riscv_emu;
 
 machine::machine() : m_bus(&m_ram)
 {
-    m_harts.emplace_back(&m_bus);
+    m_harts.emplace_back(&m_bus, 0);
 }
 
 void machine::load(const uint8_t* data, const std::size_t size) const

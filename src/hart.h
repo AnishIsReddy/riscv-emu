@@ -15,9 +15,10 @@ namespace riscv_emu {
     class hart
     {
     public:
-        explicit hart(bus* bus_ptr);
+        explicit hart(bus* bus_ptr, size_t id);
         bool step();
         void dump_regs(std::ostream& os) const;
+        const size_t hart_id;
 
     private:
         uint64_t pc = 0;

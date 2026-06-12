@@ -40,6 +40,9 @@ namespace riscv_emu
         LHU, SB, SH, SW, ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SRAI, ADD, SUB,
         SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND, FENCE, FENCE_TSO, PAUSE, ECALL, EBREAK,
 
+        // rv32 Zifencei
+        FENCE_I,
+
         // RV64i instructions
         LWU, LD, SD, ADDIW, SLLIW, SRLIW, SRAIW, ADDW, SUBW, SLLW, SRLW, SRAW,
 
@@ -71,8 +74,11 @@ namespace riscv_emu
         struct update_rd {uint8_t rd; uint64_t value; };
         struct load_rd_from_mem {uint8_t rd; uint64_t addr; uint8_t size; bool sign_ext; };
         struct store_mem {uint64_t addr; uint64_t value; uint8_t size; };
+        struct load_reserved {uint8_t rd; uint64_t addr; uint8_t size; bool sign_ext; };
+        struct store_conditional {uint8_t rd; uint64_t addr; uint64_t value; uint8_t size; bool sign_ext; };
 
-        using effect_type = std::variant<no_effect, update_rd, load_rd_from_mem, store_mem>;
+        using effect_type = std::variant<no_effect, update_rd, load_rd_from_mem, store_mem,
+                                         load_reserved, store_conditional>;
 
         effect_type effect;
         uint64_t new_pc;

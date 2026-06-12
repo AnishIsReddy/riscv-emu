@@ -13,4 +13,7 @@ CMakeCache.txt
 /.cmake
 /Testing
 
+/test.bin
+/test.elf
+
 riscv_emu

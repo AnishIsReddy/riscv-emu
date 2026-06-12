@@ -85,16 +85,25 @@ inline instr_type resolve_instr_type_OP_32(const uint8_t func3, const uint8_t fu
     }
 }
 
-inline instr_type resolve_instr_type_AMO(const uint8_t func3, const uint8_t func7)
+inline instr_type resolve_instr_type_AMO(const uint8_t func3, const uint8_t func7, const uint8_t rs2)
 {
     using enum instr_type;
+    const uint8_t func5 = func7 >> 2;
+
+    if (func3 != 0b010 && func3 != 0b011) {
+        return INVALID;
+    }
+
     const bool is_double_op = func3 == 0b011;
 
     auto itype_w = INVALID;
     auto itype_d = INVALID;
 
-    switch (func7) {
+    switch (func5) {
     case 0b00010:
+        if (rs2 != 0) {
+            return INVALID;
+        }
         itype_w = LR_W;
         itype_d = LR_D;
         break;
@@ -145,6 +154,7 @@ inline instr_type resolve_instr_type_AMO(const uint8_t func3, const uint8_t func
     if (is_double_op) {
         return itype_d;
     }
+
     return itype_w;
 }
 
@@ -153,6 +163,10 @@ instr_info decode_rtype(const uint32_t raw)
     const auto op = static_cast<opcode>(raw & 0x7F);
     const uint8_t func3 = raw >> 12 & 0x7;
     const uint8_t func7 = raw >> 25 & 0x7F;
+
+    const auto rd = static_cast<uint8_t>(raw >> 7 & 0x1F);
+    const auto rs1 = static_cast<uint8_t>(raw >> 15 & 0x1F);
+    const auto rs2 = static_cast<uint8_t>(raw >> 20 & 0x1F);
 
     instr_type itype;
 
@@ -164,7 +178,7 @@ instr_info decode_rtype(const uint32_t raw)
         itype = resolve_instr_type_OP_32(func3, func7);
         break;
     case opcode::AMO:
-        itype = resolve_instr_type_AMO(func3, func7);
+        itype = resolve_instr_type_AMO(func3, func7, rs2);
         break;
     default:
         itype = instr_type::INVALID;
@@ -172,90 +186,132 @@ instr_info decode_rtype(const uint32_t raw)
 
     return instr_info{
         .itype = itype,
-        .rd = static_cast<uint8_t>(raw >> 7 & 0x1F),
-        .rs1 = static_cast<uint8_t>(raw >> 15 & 0x1F),
-        .rs2 = static_cast<uint8_t>(raw >> 20 & 0x1F)
+        .rd = rd,
+        .rs1 = rs1,
+        .rs2 = rs2
     };
+}
+
+inline instr_type resolve_instr_type_OP_IMM(const uint8_t func3, const bool use_alt_instr)
+{
+    using enum instr_type;
+    switch (func3) {
+    case 0b000:
+        return ADDI;
+    case 0b001:
+        return SLLI;
+    case 0b010:
+        return SLTI;
+    case 0b011:
+        return SLTIU;
+    case 0b100:
+         return XORI;
+    case 0b101:
+        return use_alt_instr ? SRAI : SRLI;
+    case 0b110:
+         return ORI;
+    case 0b111:
+        return ANDI;
+    default:
+        return INVALID;
+    }
+}
+
+inline instr_type resolve_instr_type_OP_IMM_32(const uint8_t func3, const bool use_alt_instr)
+{
+    using enum instr_type;
+    switch (func3) {
+    case 0b000:
+        return ADDIW;
+    case 0b001:
+        return SLLIW;
+    case 0b101:
+        return use_alt_instr ? SRAIW : SRLIW;
+    default:
+        return INVALID;
+    }
+}
+
+inline instr_type resolve_instr_type_LOAD(const uint8_t func3)
+{
+    using enum instr_type;
+    switch (func3) {
+    case 0b000:
+        return LB;
+    case 0b001:
+        return LH;
+    case 0b010:
+        return LW;
+    case 0b011:
+        return LD;
+    case 0b100:
+        return LBU;
+    case 0b101:
+        return LHU;
+    case 0b110:
+        return LWU;
+    default:
+        return INVALID;
+    }
+}
+
+inline instr_type resolve_instr_type_MISC_MEM(const uint8_t func3)
+{
+    using enum instr_type;
+    switch (func3) {
+    case 0b000:
+        return FENCE;
+    case 0b001:
+        return FENCE_I;
+    default:
+        return INVALID;
+    }
+}
+
+inline instr_type resolve_instr_type_SYSTEM(const uint64_t imm)
+{
+    using enum instr_type;
+    switch (imm) {
+    case 0b0:
+        return ECALL;
+    case 0b1:
+        return EBREAK;
+    default:
+        return INVALID;
+    }
 }
 
 instr_info decode_itype(const uint32_t raw)
 {
-    const uint8_t func3 = raw >> 12 & 0x7;
     const auto op = static_cast<opcode>(raw & 0x7F);
-    const bool use_alt_shift_instr = raw >> 30 & 0b1;
-
-    instr_type itype;
-    auto itype_OP_IMM = instr_type::INVALID;
-    auto itype_LOAD = instr_type::INVALID;
-    auto itype_OP_IMM_32 = instr_type::INVALID;
-
-    // figure out instr type for each opcode
-    switch (func3) {
-    case 0b000:
-        itype_OP_IMM = instr_type::ADDI;
-        itype_LOAD = instr_type::LB;
-        itype_OP_IMM_32 = instr_type::ADDIW;
-        break;
-    case 0b001:
-        itype_OP_IMM = instr_type::SLLI;
-        itype_LOAD = instr_type::LH;
-        itype_OP_IMM_32 = instr_type::SLLIW;
-        break;
-    case 0b010:
-        itype_OP_IMM = instr_type::SLTI;
-        itype_LOAD = instr_type::LW;
-        break;
-    case 0b011:
-        itype_OP_IMM = instr_type::SLTIU;
-        itype_LOAD = instr_type::LD;
-        break;
-    case 0b100:
-        itype_OP_IMM = instr_type::XORI;
-        itype_LOAD = instr_type::LBU;
-        break;
-    case 0b101:
-        itype_OP_IMM = use_alt_shift_instr ? instr_type::SRAI : instr_type::SRLI;
-        itype_LOAD = instr_type::LHU;
-        itype_OP_IMM_32 = use_alt_shift_instr ? instr_type::SRAIW : instr_type::SRLIW;
-        break;
-    case 0b110:
-        itype_OP_IMM = instr_type::ORI;
-        itype_LOAD = instr_type::LWU;
-        break;
-    case 0b111:
-        itype_OP_IMM = instr_type::ANDI;
-        break;
-    default:
-        return instr_info{.itype = instr_type::INVALID};
-    }
-
+    const uint8_t func3 = raw >> 12 & 0x7;
+    const bool use_alt_instr = raw >> 30 & 0b1;
     const uint64_t raw_imm = raw >> 20 & 0xFFF;
 
-    // sel instr type based on opcode
-    if (op == opcode::OP_IMM) {
-        itype = itype_OP_IMM;
-    }
-    else if (op == opcode::LOAD) {
-        itype = itype_LOAD;
-    }
-    else if (op == opcode::OP_IMM_32) {
-        itype = itype_OP_IMM_32;
-    }
-    else if (op == opcode::JALR) {
+    instr_type itype;
+
+    switch (op) {
+        using enum opcode;
+
+    case OP_IMM:
+        itype = resolve_instr_type_OP_IMM(func3, use_alt_instr);
+        break;
+    case LOAD:
+        itype = resolve_instr_type_LOAD(func3);
+        break;
+    case OP_IMM_32:
+        itype = resolve_instr_type_OP_IMM_32(func3, use_alt_instr);
+        break;
+    case JALR:
         itype = instr_type::JALR;
-    }
-    else if (op == opcode::MISC_MEM) {
-        itype = instr_type::FENCE;
-    }
-    else if (op == opcode::SYSTEM) {
-        if (raw_imm == 0) {
-            itype = instr_type::ECALL;
-        }
-        else {
-            itype = instr_type::EBREAK;
-        }
-    }
-    else {
+        break;
+    case MISC_MEM:
+        itype = resolve_instr_type_MISC_MEM(func3);
+        break;
+    case SYSTEM:
+        itype = resolve_instr_type_SYSTEM(raw_imm);
+        break;
+    default:
         itype = instr_type::INVALID;
     }
 
@@ -264,7 +320,6 @@ instr_info decode_itype(const uint32_t raw)
     if (!is_shift_imm_instr(itype)) {
         imm = sign_extend(raw_imm, 12);
     }
-
 
     const auto out = instr_info{
         .imm = imm,

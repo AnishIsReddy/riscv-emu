@@ -13,15 +13,13 @@
 
 using namespace riscv_emu;
 
-hart::hart(bus* bus_ptr)
-{
-    mem_bus = bus_ptr;
-}
+hart::hart(bus* bus_ptr, const size_t id)
+    : hart_id(id), mem_bus(bus_ptr) {}
 
 
 bool hart::step()
 {
-    const auto raw_instr = mem_bus->read_memory(pc, 4);
+    const auto raw_instr = mem_bus->load(pc, 4);
     const auto instr = decode(raw_instr);
 
     // If the instruction was invalid, then return false.
@@ -39,14 +37,31 @@ bool hart::step()
         },
         [&](const instr_effect::load_rd_from_mem & e)
         {
-            reg_file[e.rd] = mem_bus->read_memory(e.addr, e.size);
+            reg_file[e.rd] = mem_bus->load(e.addr, e.size);
             if (e.sign_ext) {
                 reg_file[e.rd] = sign_extend(reg_file[e.rd], e.size * 8);
             }
         },
         [&](const instr_effect::store_mem & e)
         {
-            mem_bus->write_memory(e.addr, e.value, e.size);
+            mem_bus->store(e.addr, e.value, e.size);
+        },
+        [&](const instr_effect::load_reserved & e)
+        {
+            reg_file[e.rd] = mem_bus->load_reserved(e.addr, e.size, hart_id);
+            if (e.sign_ext) {
+                reg_file[e.rd] = sign_extend(reg_file[e.rd], e.size * 8);
+            }
+        },
+        [&](const instr_effect::store_conditional & e)
+        {
+            uint64_t data = e.value;
+            if (e.sign_ext) {
+                data = sign_extend(data, e.size * 8);
+            }
+            // SC writes 0 to rd on success / nonzero on failure (RISC-V spec);
+            // store_conditional() returns true on success, so negate to bridge the conventions
+            reg_file[e.rd] = !mem_bus->store_conditional(e.addr, data, e.size, hart_id);
         }
     }, effect);
 

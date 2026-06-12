@@ -33,7 +33,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case AUIPC: {
         out.effect = instr_effect::update_rd
         {
@@ -42,7 +41,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case JAL: {
         out.effect = instr_effect::update_rd
         {
@@ -52,7 +50,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         out.new_pc = pc + instr.imm;
         return out;
     }
-
     case JALR: {
         out.effect = instr_effect::update_rd
         {
@@ -62,49 +59,42 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         out.new_pc = (instr.imm + reg_file[instr.rs1]) & ~0x1;
         return out;
     }
-
     case BEQ: {
         if (reg_file[instr.rs1] == reg_file[instr.rs2]) {
             out.new_pc = pc + instr.imm;
         }
         return out;
     }
-
     case BNE: {
         if (reg_file[instr.rs1] != reg_file[instr.rs2]) {
             out.new_pc = pc + instr.imm;
         }
         return out;
     }
-
     case BLT: {
         if (static_cast<int64_t>(reg_file[instr.rs1]) < static_cast<int64_t>(reg_file[instr.rs2])) {
             out.new_pc = pc + instr.imm;
         }
         return out;
     }
-
     case BGE: {
         if (static_cast<int64_t>(reg_file[instr.rs1]) >= static_cast<int64_t>(reg_file[instr.rs2])) {
             out.new_pc = pc + instr.imm;
         }
         return out;
     }
-
     case BLTU: {
         if (reg_file[instr.rs1] < reg_file[instr.rs2]) {
             out.new_pc = pc + instr.imm;
         }
         return out;
     }
-
     case BGEU: {
         if (reg_file[instr.rs1] >= reg_file[instr.rs2]) {
             out.new_pc = pc + instr.imm;
         }
         return out;
     }
-
     case LB: {
         out.effect = instr_effect::load_rd_from_mem
         {
@@ -115,7 +105,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case LH: {
         out.effect = instr_effect::load_rd_from_mem
         {
@@ -126,7 +115,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case LW: {
         out.effect = instr_effect::load_rd_from_mem
         {
@@ -137,7 +125,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case LBU: {
         out.effect = instr_effect::load_rd_from_mem
         {
@@ -148,7 +135,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case LHU: {
         out.effect = instr_effect::load_rd_from_mem
         {
@@ -159,7 +145,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SB: {
         out.effect = instr_effect::store_mem
         {
@@ -169,7 +154,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SH: {
         out.effect = instr_effect::store_mem
         {
@@ -179,7 +163,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SW: {
         out.effect = instr_effect::store_mem
         {
@@ -189,7 +172,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case ADDI: {
         out.effect = instr_effect::update_rd
         {
@@ -198,7 +180,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SLTI: {
         out.effect = instr_effect::update_rd
         {
@@ -207,7 +188,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SLTIU: {
         out.effect = instr_effect::update_rd
         {
@@ -216,7 +196,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case XORI: {
         out.effect = instr_effect::update_rd
         {
@@ -225,7 +204,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case ORI: {
         out.effect = instr_effect::update_rd
         {
@@ -234,7 +212,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case ANDI: {
         out.effect = instr_effect::update_rd
         {
@@ -243,7 +220,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SLLI: {
         out.effect = instr_effect::update_rd
         {
@@ -252,7 +228,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SRLI: {
         out.effect = instr_effect::update_rd
         {
@@ -261,7 +236,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SRAI: {
         out.effect = instr_effect::update_rd
         {
@@ -270,7 +244,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case ADD: {
         out.effect = instr_effect::update_rd
         {
@@ -279,7 +252,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SUB: {
         out.effect = instr_effect::update_rd
         {
@@ -288,7 +260,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SLL: {
         out.effect = instr_effect::update_rd
         {
@@ -297,7 +268,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SLT: {
         out.effect = instr_effect::update_rd
         {
@@ -306,7 +276,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SLTU: {
         out.effect = instr_effect::update_rd
         {
@@ -315,7 +284,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case XOR: {
         out.effect = instr_effect::update_rd
         {
@@ -324,7 +292,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SRL: {
         out.effect = instr_effect::update_rd
         {
@@ -333,7 +300,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SRA: {
         out.effect = instr_effect::update_rd
         {
@@ -342,7 +308,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case OR: {
         out.effect = instr_effect::update_rd
         {
@@ -351,7 +316,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case AND: {
         out.effect = instr_effect::update_rd
         {
@@ -360,14 +324,13 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case FENCE:
     case FENCE_TSO:
+    case FENCE_I:
     case PAUSE:
     case ECALL:
     case EBREAK:
         return out;
-
     case LWU: {
         out.effect = instr_effect::load_rd_from_mem
         {
@@ -378,7 +341,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case LD: {
         out.effect = instr_effect::load_rd_from_mem
         {
@@ -389,7 +351,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SD: {
         out.effect = instr_effect::store_mem
         {
@@ -399,7 +360,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case ADDIW: {
         uint64_t val = sign_extend((reg_file[instr.rs1] & MASK_32) + (instr.imm & MASK_32), 32);
 
@@ -411,7 +371,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case SLLIW: {
         uint64_t val = sign_extend((reg_file[instr.rs1] << shift_amt_imm_32) & MASK_32 , 32);
 
@@ -423,7 +382,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case SRLIW: {
         uint64_t val = logical_shift_right(reg_file[instr.rs1] & MASK_32, shift_amt_imm_32);
         val = sign_extend(val,32);
@@ -436,7 +394,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case SRAIW: {
         uint64_t val = sign_extend(reg_file[instr.rs1] & MASK_32, 32);
         val = arith_shift_right(val, shift_amt_imm_32);
@@ -449,7 +406,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case ADDW: {
         uint64_t val = sign_extend((reg_file[instr.rs1] & MASK_32) + (reg_file[instr.rs2] & MASK_32), 32);
 
@@ -461,7 +417,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case SUBW: {
         uint64_t val = sign_extend((reg_file[instr.rs1] & MASK_32) - (reg_file[instr.rs2] & MASK_32), 32);
 
@@ -473,7 +428,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case SLLW: {
         uint64_t val = sign_extend((reg_file[instr.rs1] << shift_amt_rs2_32) & MASK_32, 32);
         out.effect = instr_effect::update_rd
@@ -483,7 +437,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case SRLW: {
         uint64_t val = logical_shift_right(reg_file[instr.rs1] & MASK_32, shift_amt_rs2_32);
         val = sign_extend(val, 32);
@@ -496,7 +449,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case SRAW: {
         uint64_t val = sign_extend(reg_file[instr.rs1] & MASK_32, 32);
         val = arith_shift_right(val, shift_amt_rs2_32);
@@ -508,7 +460,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case MUL: {
         out.effect = instr_effect::update_rd
         {
@@ -517,7 +468,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         };
         return out;
     }
-
     case MULH: {
         auto op1 = static_cast<__int128_t>(static_cast<int64_t>(reg_file[instr.rs1]));
         auto op2 = static_cast<__int128_t>(static_cast<int64_t>(reg_file[instr.rs2]));
@@ -531,7 +481,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case MULHSU: {
         auto op1 = static_cast<__int128_t>(static_cast<int64_t>(reg_file[instr.rs1]));
         auto op2 = static_cast<__uint128_t>(reg_file[instr.rs2]);
@@ -545,7 +494,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case MULHU: {
         auto op1 = static_cast<__uint128_t>(reg_file[instr.rs1]);
         auto op2 = static_cast<__uint128_t>(reg_file[instr.rs2]);
@@ -559,7 +507,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case DIV: {
         uint64_t val;
         if (reg_file[instr.rs2] == 0) {
@@ -580,7 +527,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case DIVU : {
         uint64_t val;
         if (reg_file[instr.rs2] == 0) {
@@ -598,7 +544,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case REM: {
         uint64_t val;
         if (reg_file[instr.rs2] == 0) {
@@ -619,7 +564,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case REMU: {
         uint64_t val;
         if (reg_file[instr.rs2] == 0) {
@@ -637,7 +581,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case MULW: {
         uint64_t val = sign_extend((reg_file[instr.rs1] & MASK_32) * (reg_file[instr.rs2] & MASK_32), 32);
 
@@ -649,7 +592,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case DIVW: {
         auto op1 = static_cast<int32_t>(reg_file[instr.rs1]);
         auto op2 = static_cast<int32_t>(reg_file[instr.rs2]);
@@ -673,7 +615,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case DIVUW: {
         auto op1 = reg_file[instr.rs1] & MASK_32;
         auto op2 = reg_file[instr.rs2] & MASK_32;
@@ -694,7 +635,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case REMW: {
         auto op1 = static_cast<int32_t>(reg_file[instr.rs1]);
         auto op2 = static_cast<int32_t>(reg_file[instr.rs2]);
@@ -718,7 +658,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case REMUW: {
         auto op1 = reg_file[instr.rs1] & MASK_32;
         auto op2 = reg_file[instr.rs2] & MASK_32;
@@ -739,7 +678,74 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
+    case LR_W: {
+        out.effect = instr_effect::load_reserved
+        {
+            .rd = instr.rd,
+            .addr = reg_file[instr.rs1],
+            .size = 4,
+            .sign_ext = true
+        };
 
+        return out;
+    }
+
+    case SC_W: {
+        out.effect = instr_effect::store_conditional
+        {
+            .rd = instr.rd,
+            .addr = reg_file[instr.rs1],
+            .value = reg_file[instr.rs2],
+            .size = 4,
+            .sign_ext = true
+        };
+
+        return out;
+    }
+    case AMOSWAP_W:
+    case AMOADD_W:
+    case AMOXOR_W:
+    case AMOAND_W:
+    case AMOOR_W:
+    case AMOMIN_W:
+    case AMOMAX_W:
+    case AMOMINU_W:
+    case AMOMAXU_W:
+        return out;
+
+    case LR_D: {
+        out.effect = instr_effect::load_reserved
+        {
+            .rd = instr.rd,
+            .addr = reg_file[instr.rs1],
+            .size = 8,
+            .sign_ext = false
+        };
+
+        return out;
+    }
+
+    case SC_D:{
+        out.effect = instr_effect::store_conditional
+        {
+            .rd = instr.rd,
+            .addr = reg_file[instr.rs1],
+            .value = reg_file[instr.rs2],
+            .size = 8,
+            .sign_ext = false
+        };
+
+        return out;
+    }
+    case AMOSWAP_D:
+    case AMOADD_D:
+    case AMOXOR_D:
+    case AMOAND_D:
+    case AMOOR_D:
+    case AMOMIN_D:
+    case AMOMAX_D:
+    case AMOMINU_D:
+    case AMOMAXU_D:
     default:
         return out;
     }

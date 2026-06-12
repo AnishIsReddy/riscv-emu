@@ -51,7 +51,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 GCC = "riscv64-unknown-elf-gcc"
 OBJCOPY = "riscv64-unknown-elf-objcopy"
-ASM_MARCH_OPT = "rv64im"
+ASM_MARCH_OPT = "rv64ima"
 
 
 # ---------------------------------------------------------------------------

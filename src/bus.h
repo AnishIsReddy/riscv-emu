@@ -6,6 +6,7 @@
 #define RISCV_EMU_BUS_H
 
 #include <memory>
+#include <vector>
 
 namespace riscv_emu
 {
@@ -16,12 +17,33 @@ namespace riscv_emu
     public:
         explicit bus(ram* mem_ptr);
 
-        [[nodiscard]] uint64_t read_memory(uint64_t addr, uint8_t size) const;
-        void write_memory(uint64_t addr, uint64_t data, uint8_t size) const;
+        [[nodiscard]]
+        uint64_t load(uint64_t addr, uint8_t size) const;
+        void store(uint64_t addr, uint64_t data, uint8_t size);
+
+        [[nodiscard]]
+        uint64_t load_reserved(uint64_t addr, uint8_t size, size_t hart_id);
+        bool store_conditional(uint64_t addr, uint64_t data, uint8_t size, size_t hart_id);
 
     private:
-        ram* main_memory;
+        void clear_addr_reservations(uint64_t addr, uint8_t size);
+        void reserve_addr(uint64_t addr, uint8_t size, size_t hart_id);
 
+        [[nodiscard]]
+        bool holds_reservation(uint64_t addr, uint8_t size, size_t hart_id) const;
+
+        struct hart_res_entry
+        {
+            uint64_t addr = 0;
+            uint8_t size = 0;
+
+            [[nodiscard]]
+            bool valid() const {return size != 0; }
+            void invalidate() { size = 0; }
+        };
+
+        ram* main_memory;
+        std::vector<hart_res_entry> hart_reservations;
     };
 } // riscv_emu
 

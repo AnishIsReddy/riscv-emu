@@ -14,8 +14,9 @@ namespace riscv_emu
     public:
         void load(const uint8_t* data, std::size_t size) const;
 
-        [[nodiscard]] uint64_t read_addr(uint64_t addr, uint8_t size) const;
-        void write_addr(uint64_t addr, uint64_t data, uint8_t size) const;
+        [[nodiscard]]
+        uint64_t read(uint64_t addr, uint8_t size) const;
+        void write(uint64_t addr, uint64_t data, uint8_t size) const;
 
         void dump(std::ostream& os) const;
 
