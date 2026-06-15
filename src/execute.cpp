@@ -5,14 +5,13 @@
 #include <cstdint>
 #include "execute.h"
 
-
 #define MASK_32 0xFFFFFFFF
 
 using namespace riscv_emu;
 
 instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COUNT], uint64_t pc)
 {
-     instr_effect out = {
+    instr_effect out = {
         .effect = instr_effect::no_effect{},
         .new_pc = pc + 4
     };
@@ -689,7 +688,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case SC_W: {
         out.effect = instr_effect::store_conditional
         {
@@ -710,9 +708,18 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
     case AMOMIN_W:
     case AMOMAX_W:
     case AMOMINU_W:
-    case AMOMAXU_W:
-        return out;
+    case AMOMAXU_W: {
+        out.effect = instr_effect::amo_rmw {
+            .rd = instr.rd,
+            .type = to_amo_type(instr.itype),
+            .addr = reg_file[instr.rs1],
+            .value = reg_file[instr.rs2],
+            .size = 4,
+            .sign_ext = true
+        };
 
+        return out;
+    }
     case LR_D: {
         out.effect = instr_effect::load_reserved
         {
@@ -724,7 +731,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-
     case SC_D:{
         out.effect = instr_effect::store_conditional
         {
@@ -745,8 +751,22 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
     case AMOMIN_D:
     case AMOMAX_D:
     case AMOMINU_D:
-    case AMOMAXU_D:
-    default:
+    case AMOMAXU_D: {
+        out.effect = instr_effect::amo_rmw {
+            .rd = instr.rd,
+            .type = to_amo_type(instr.itype),
+            .addr = reg_file[instr.rs1],
+            .value = reg_file[instr.rs2],
+            .size = 8,
+            .sign_ext = false
+        };
+
         return out;
     }
+    case INVALID:
+        return out;
+    }
+
+    // need this for return type
+    return out;
 }

@@ -1,0 +1,7 @@
+{
+  "name": "amoand_w",
+  "regs": {
+    "x07": "0xFFFFFFFFFFFF00FF",
+    "x28": "0xFFFFFFFFF0F000F0"
+  }
+}

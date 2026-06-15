@@ -62,6 +62,13 @@ bool hart::step()
             // SC writes 0 to rd on success / nonzero on failure (RISC-V spec);
             // store_conditional() returns true on success, so negate to bridge the conventions
             reg_file[e.rd] = !mem_bus->store_conditional(e.addr, data, e.size, hart_id);
+        },
+        [&](const instr_effect::amo_rmw & e)
+        {
+            reg_file[e.rd] = mem_bus->handle_amo(e.type, e.addr, e.value, e.size);
+            if (e.sign_ext) {
+                reg_file[e.rd] = sign_extend(reg_file[e.rd], e.size * 8);
+            }
         }
     }, effect);
 

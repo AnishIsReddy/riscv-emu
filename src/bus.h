@@ -5,8 +5,8 @@
 #ifndef RISCV_EMU_BUS_H
 #define RISCV_EMU_BUS_H
 
-#include <memory>
 #include <vector>
+#include "defs.h"
 
 namespace riscv_emu
 {
@@ -24,6 +24,8 @@ namespace riscv_emu
         [[nodiscard]]
         uint64_t load_reserved(uint64_t addr, uint8_t size, size_t hart_id);
         bool store_conditional(uint64_t addr, uint64_t data, uint8_t size, size_t hart_id);
+
+        uint64_t handle_amo(amo_type type, uint64_t addr, uint64_t data, uint8_t size);
 
     private:
         void clear_addr_reservations(uint64_t addr, uint8_t size);

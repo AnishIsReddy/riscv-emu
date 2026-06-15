@@ -1,0 +1,7 @@
+{
+  "name": "amoadd_w",
+  "regs": {
+    "x07": "0xFFFFFFFFFFFFFFFF",
+    "x28": "0x0000000000000000"
+  }
+}

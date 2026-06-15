@@ -1,0 +1,7 @@
+{
+  "name": "amomaxu_w",
+  "regs": {
+    "x07": "0xFFFFFFFF80000000",
+    "x28": "0xFFFFFFFF80000000"
+  }
+}

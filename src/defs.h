@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <variant>
+#include <iostream>
 
 namespace riscv_emu
 {
@@ -68,6 +69,67 @@ namespace riscv_emu
         uint8_t rs2 = 0;
     };
 
+    enum class amo_type
+    {
+        SWAP,
+        ADD,
+        XOR,
+        AND,
+        OR,
+        MIN,
+        MAX,
+        MINU,
+        MAXU
+    };
+
+    inline amo_type to_amo_type(const instr_type instr)
+    {
+        switch (instr)
+        {
+            using enum instr_type;
+
+        case AMOSWAP_W:
+        case AMOSWAP_D:
+            return amo_type::SWAP;
+
+        case AMOADD_W:
+        case AMOADD_D:
+            return amo_type::ADD;
+
+        case AMOXOR_W:
+        case AMOXOR_D:
+            return amo_type::XOR;
+
+        case AMOAND_W:
+        case AMOAND_D:
+            return amo_type::AND;
+
+        case AMOOR_W:
+        case AMOOR_D:
+            return amo_type::OR;
+
+        case AMOMIN_W:
+        case AMOMIN_D:
+            return amo_type::MIN;
+
+        case AMOMAX_W:
+        case AMOMAX_D:
+            return amo_type::MAX;
+
+        case AMOMINU_W:
+        case AMOMINU_D:
+            return amo_type::MINU;
+
+        case AMOMAXU_W:
+        case AMOMAXU_D:
+            return amo_type::MAXU;
+
+        default:
+            std::cerr << "to_amo_type: not an AMO instruction\n";
+            std::abort();
+        }
+    }
+
     struct instr_effect
     {
         struct no_effect{};
@@ -76,9 +138,10 @@ namespace riscv_emu
         struct store_mem {uint64_t addr; uint64_t value; uint8_t size; };
         struct load_reserved {uint8_t rd; uint64_t addr; uint8_t size; bool sign_ext; };
         struct store_conditional {uint8_t rd; uint64_t addr; uint64_t value; uint8_t size; bool sign_ext; };
+        struct amo_rmw {uint8_t rd; amo_type type; uint64_t addr; uint64_t value; uint8_t size; bool sign_ext;};
 
         using effect_type = std::variant<no_effect, update_rd, load_rd_from_mem, store_mem,
-                                         load_reserved, store_conditional>;
+                                         load_reserved, store_conditional, amo_rmw>;
 
         effect_type effect;
         uint64_t new_pc;

@@ -4,6 +4,7 @@
 
 #ifndef RISCV_EMU_MEMORY_H
 #define RISCV_EMU_MEMORY_H
+
 #include <memory>
 #include "defs.h"
 
