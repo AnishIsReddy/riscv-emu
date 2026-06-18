@@ -3,7 +3,10 @@
 //
 
 #include <cstdint>
+#include <cassert>
+
 #include "execute.h"
+
 
 #define MASK_32 0xFFFFFFFF
 
@@ -767,6 +770,7 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         return out;
     }
 
-    // need this for return type
-    return out;
+    std::println(std::cerr, "FATAL: unhandled instr_type {} at pc={:#x}",
+                 static_cast<int>(instr.itype), pc);
+    std::abort();
 }
