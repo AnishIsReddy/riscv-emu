@@ -21,9 +21,9 @@ void machine::load(const uint8_t* data, const std::size_t size) const
 
 void machine::run()
 {
-    bool step_ok = true;
-    while (step_ok) {
-        step_ok = m_harts[0].step();
+    for (size_t i = 0; i < 1000000; i++) {
+        m_harts[0].step();
+        // check shutdown address and break
     }
 }
 

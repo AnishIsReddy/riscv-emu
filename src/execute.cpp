@@ -12,8 +12,12 @@
 
 using namespace riscv_emu;
 
-instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_COUNT], uint64_t pc)
-{
+instr_effect riscv_emu::execute(
+    const instr_info instr,
+    const uint64_t reg_file[REG_COUNT],
+    const uint64_t pc,
+    const privilege_level priv
+){
     instr_effect out = {
         .effect = instr_effect::no_effect{},
         .new_pc = pc + 4
@@ -24,9 +28,8 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
     const uint8_t shift_amt_rs2 = reg_file[instr.rs2] & 0x3F;
     const uint8_t shift_amt_rs2_32 = reg_file[instr.rs2] & 0x1F;
 
-    switch (instr.itype) {
+    switch (instr.op_type) {
         using enum instr_type;
-
     case LUI: {
         out.effect = instr_effect::update_rd
         {
@@ -132,7 +135,7 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
         {
             .rd = instr.rd,
             .addr = reg_file[instr.rs1] + instr.imm,
-            .size = 4,
+            .size = 1,
             .sign_ext = false
         };
         return out;
@@ -330,9 +333,39 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
     case FENCE_TSO:
     case FENCE_I:
     case PAUSE:
-    case ECALL:
-    case EBREAK:
         return out;
+    case ECALL: {
+        exception_type code;
+
+        switch (priv) {
+            using enum privilege_level;
+        case M:
+            code = exception_type::ECALL_M;
+            break;
+        case S:
+            code = exception_type::ECALL_S;
+            break;
+        case U:
+            code = exception_type::ECALL_U;
+            break;
+        }
+
+        out.effect = instr_effect::raise_trap
+        {
+            .cause = code,
+            .tval = 0
+        };
+
+        return out;
+    }
+    case EBREAK: {
+        out.effect = instr_effect::raise_trap
+        {
+            .cause = exception_type::BREAKPOINT,
+            .tval = 0
+        };
+        return out;
+    }
     case LWU: {
         out.effect = instr_effect::load_rd_from_mem
         {
@@ -698,7 +731,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
             .addr = reg_file[instr.rs1],
             .value = reg_file[instr.rs2],
             .size = 4,
-            .sign_ext = true
         };
 
         return out;
@@ -714,7 +746,7 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
     case AMOMAXU_W: {
         out.effect = instr_effect::amo_rmw {
             .rd = instr.rd,
-            .type = to_amo_type(instr.itype),
+            .type = to_amo_type(instr.op_type),
             .addr = reg_file[instr.rs1],
             .value = reg_file[instr.rs2],
             .size = 4,
@@ -741,7 +773,6 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
             .addr = reg_file[instr.rs1],
             .value = reg_file[instr.rs2],
             .size = 8,
-            .sign_ext = false
         };
 
         return out;
@@ -757,7 +788,7 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
     case AMOMAXU_D: {
         out.effect = instr_effect::amo_rmw {
             .rd = instr.rd,
-            .type = to_amo_type(instr.itype),
+            .type = to_amo_type(instr.op_type),
             .addr = reg_file[instr.rs1],
             .value = reg_file[instr.rs2],
             .size = 8,
@@ -766,11 +797,89 @@ instr_effect riscv_emu::execute(instr_info instr, const uint64_t reg_file[REG_CO
 
         return out;
     }
-    case INVALID:
+    case CSRRW: {
+        out.effect = instr_effect::csr_rmw {
+            .rd = instr.rd,
+            .type = to_csr_op_type(instr.op_type),
+            .addr = static_cast<uint16_t>(instr.imm),
+            .value = reg_file[instr.rs1],
+            .skip_read = instr.rd == 0,
+            .skip_write = false
+        };
         return out;
+    }
+    case CSRRS:
+    case CSRRC: {
+        out.effect = instr_effect::csr_rmw {
+            .rd = instr.rd,
+            .type = to_csr_op_type(instr.op_type),
+            .addr = static_cast<uint16_t>(instr.imm),
+            .value = reg_file[instr.rs1],
+            .skip_read = false,
+            .skip_write = instr.rs1 == 0
+        };
+        return out;
+    }
+    case CSRRWI: {
+        out.effect = instr_effect::csr_rmw {
+            .rd = instr.rd,
+            .type = to_csr_op_type(instr.op_type),
+            .addr = static_cast<uint16_t>(instr.imm),
+            .value = instr.rs1,
+            .skip_read = instr.rd == 0,
+            .skip_write = false
+        };
+        return out;
+    }
+    case CSRRSI:
+    case CSRRCI: {
+        out.effect = instr_effect::csr_rmw {
+            .rd = instr.rd,
+            .type = to_csr_op_type(instr.op_type),
+            .addr = static_cast<uint16_t>(instr.imm),
+            .value = instr.rs1,
+            .skip_read = false,
+            .skip_write = instr.rs1 == 0
+        };
+        return out;
+    }
+    case MRET: {
+        if (priv != privilege_level::M) {
+            out.effect = instr_effect::raise_trap
+            {
+                .cause = exception_type::ILLEGAL_INSTRUCTION,
+                .tval = 0
+            };
+        }
+
+        out.effect = instr_effect::trap_return{.return_priv = privilege_level::M};
+        return out;
+    }
+    case SRET: {
+        if (priv < privilege_level::S) {
+            out.effect = instr_effect::raise_trap
+            {
+                .cause = exception_type::ILLEGAL_INSTRUCTION,
+                .tval = 0
+            };
+        }
+        out.effect = instr_effect::trap_return{.return_priv = privilege_level::S};
+        return out;
+    }
+    case WFI: {
+        out.effect = instr_effect::handle_wfi{};
+        return out;
+    }
+    case INVALID:{
+        out.effect = instr_effect::raise_trap {
+            .cause = exception_type::ILLEGAL_INSTRUCTION,
+            .tval = 0
+        };
+        return out;
+    }
     }
 
     std::println(std::cerr, "FATAL: unhandled instr_type {} at pc={:#x}",
-                 static_cast<int>(instr.itype), pc);
+                 static_cast<int>(instr.op_type), pc);
     std::abort();
 }

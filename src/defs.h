@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <variant>
 #include <iostream>
+#include <utility>
 
 namespace riscv_emu
 {
@@ -57,18 +58,30 @@ namespace riscv_emu
         LR_W, SC_W, AMOSWAP_W, AMOADD_W, AMOXOR_W, AMOAND_W, AMOOR_W, AMOMIN_W, AMOMAX_W, AMOMINU_W, AMOMAXU_W,
 
         // RV64a instructions
-        LR_D, SC_D, AMOSWAP_D, AMOADD_D, AMOXOR_D, AMOAND_D, AMOOR_D, AMOMIN_D, AMOMAX_D, AMOMINU_D, AMOMAXU_D
+        LR_D, SC_D, AMOSWAP_D, AMOADD_D, AMOXOR_D, AMOAND_D, AMOOR_D, AMOMIN_D, AMOMAX_D, AMOMINU_D, AMOMAXU_D,
+
+        // CSR instructions
+        CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI,
+
+        // Trap Return
+        SRET, MRET,
+
+        // Interrupts
+        WFI
     };
 
     struct instr_info
     {
         int64_t imm = 0;
-        instr_type itype = instr_type::INVALID;
+        instr_type op_type = instr_type::INVALID;
         uint8_t rd = 0;
         uint8_t rs1 = 0;
         uint8_t rs2 = 0;
     };
 
+    //--------------------------------------------
+    // Atomic Memory Ops
+    //--------------------------------------------
     enum class amo_type
     {
         SWAP,
@@ -84,8 +97,7 @@ namespace riscv_emu
 
     inline amo_type to_amo_type(const instr_type instr)
     {
-        switch (instr)
-        {
+        switch (instr) {
             using enum instr_type;
 
         case AMOSWAP_W:
@@ -130,18 +142,165 @@ namespace riscv_emu
         }
     }
 
+    enum class csr_op_type
+    {
+        RW,
+        RS,
+        RC
+    };
+
+    inline csr_op_type to_csr_op_type(const instr_type instr)
+    {
+        switch (instr) {
+            using enum instr_type;
+        case CSRRW:
+        case CSRRWI:
+            return csr_op_type::RW;
+        case CSRRS:
+        case CSRRSI:
+            return csr_op_type::RS;
+        case CSRRC:
+        case CSRRCI:
+            return csr_op_type::RC;
+        default:
+            std::cerr << "to_csr_op_type: not an CSRRW instruction\n";
+            std::abort();
+        }
+    }
+
+    //--------------------------------------------
+    // Exceptions and Traps
+    //--------------------------------------------
+    enum class exception_type : uint64_t
+    {
+        INSTR_ADDR_MISALIGNED = 0,
+        INSTR_ACCESS_FAULT = 1,
+        ILLEGAL_INSTRUCTION = 2,
+        BREAKPOINT = 3,
+        LOAD_ADDR_MISALIGNED = 4,
+        LOAD_ACCESS_FAULT = 5,
+        STORE_ADDR_MISALIGNED = 6,
+        STORE_ACCESS_FAULT = 7,
+        ECALL_U = 8,
+        ECALL_S = 9,
+        ECALL_M = 11,
+        INSTR_PAGE_FAULT = 12,
+        LOAD_PAGE_FAULT = 13,
+        STORE_PAGE_FAULT = 15
+    };
+
+
+    enum class interrupt_type : uint64_t
+    {
+        MACHINE_SOFTWARE = 3,
+        MACHINE_TIMER = 7,
+        MACHINE_EXTERNAL = 11,
+
+        SUPERVISOR_SOFTWARE = 1,
+        SUPERVISOR_TIMER = 5,
+        SUPERVISOR_EXTERNAL = 9
+    };
+
+    constexpr uint64_t operator<<(const uint64_t lhs, const interrupt_type rhs)
+    {
+        return lhs << std::to_underlying(rhs);
+    }
+
+
+    struct trap_cause
+    {
+        uint64_t code;
+        bool is_interrupt;
+
+        // ReSharper disable once CppNonExplicitConvertingConstructor
+        trap_cause(const exception_type e)
+        {
+            code = std::to_underlying(e);
+            is_interrupt = false;
+        }
+
+        // ReSharper disable once CppNonExplicitConvertingConstructor
+        trap_cause(const interrupt_type i)
+        {
+            code = std::to_underlying(i);
+            is_interrupt = true;
+        }
+    };
+
+
+    //--------------------------------------------
+    // Instruction Effects
+    //--------------------------------------------
+
+    enum class privilege_level
+    {
+        U = 0,
+        S = 1,
+        M = 3
+    };
+
+    enum class csr_register : uint16_t
+    {
+        // Machine info registers
+        MVENDORID = 0xF11,
+        MARCHID = 0xF12,
+        //MIMPID = 0xF13,
+        MHARTID = 0xF14,
+        MCONFIGPTR = 0xF15,
+
+        // Machine trap setup
+        MSTATUS = 0x300,
+        MISA = 0x301,
+        MEDELEG = 0x302,
+        MIDELEG = 0x303,
+        MIE = 0x304,
+        MTVEC = 0x305,
+        MCOUNTEREN = 0x306,
+        //MSTATUSH = 0x310,
+        //MDELEGH = 0x312,
+
+        // Machine trap handling
+        MSCRATCH = 0x340,
+        MEPC = 0x341,
+        MCAUSE = 0x342,
+        MTVAL = 0x343,
+        MIP = 0x344,
+        //MTINST = 0x34A,
+        //MTVAL2 = 0x34B,
+
+        // Machine indirect
+        //MISELECT = 0x350,
+        //MIREG_BASE = 0x351,
+        //MIREG_SIZE = 6
+
+        // Machine configuration
+        MENVCFG = 0x30A,
+        MSECCFG = 0x747,
+
+        // Machine counters/timers
+        MCYCLE = 0xB00,
+        MINSTRET = 0xB02,
+
+        // Machine counter setup
+        MCOUNTINHIBIT = 0x320,
+    };
+
     struct instr_effect
     {
         struct no_effect{};
-        struct update_rd {uint8_t rd; uint64_t value; };
-        struct load_rd_from_mem {uint8_t rd; uint64_t addr; uint8_t size; bool sign_ext; };
-        struct store_mem {uint64_t addr; uint64_t value; uint8_t size; };
-        struct load_reserved {uint8_t rd; uint64_t addr; uint8_t size; bool sign_ext; };
-        struct store_conditional {uint8_t rd; uint64_t addr; uint64_t value; uint8_t size; bool sign_ext; };
-        struct amo_rmw {uint8_t rd; amo_type type; uint64_t addr; uint64_t value; uint8_t size; bool sign_ext;};
+        struct update_rd{uint8_t rd; uint64_t value; };
+        struct load_rd_from_mem{uint8_t rd; uint64_t addr; uint8_t size; bool sign_ext; };
+        struct store_mem{uint64_t addr; uint64_t value; uint8_t size; };
+        struct load_reserved{uint8_t rd; uint64_t addr; uint8_t size; bool sign_ext; };
+        struct store_conditional{uint8_t rd; uint64_t addr; uint64_t value; uint8_t size; };
+        struct amo_rmw{uint8_t rd; amo_type type; uint64_t addr; uint64_t value; uint8_t size; bool sign_ext; };
+        struct csr_rmw{uint8_t rd; csr_op_type type; uint16_t addr; uint64_t value; bool skip_read; bool skip_write; };
+        struct raise_trap{trap_cause cause; uint64_t tval; };
+        struct trap_return{privilege_level return_priv; };
+        struct handle_wfi{};
 
-        using effect_type = std::variant<no_effect, update_rd, load_rd_from_mem, store_mem,
-                                         load_reserved, store_conditional, amo_rmw>;
+        using effect_type = std::variant<no_effect, update_rd, load_rd_from_mem, store_mem, load_reserved,
+                                         store_conditional, amo_rmw, csr_rmw, raise_trap, trap_return, handle_wfi>;
 
         effect_type effect;
         uint64_t new_pc;
