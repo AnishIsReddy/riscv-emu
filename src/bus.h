@@ -8,45 +8,56 @@
 #include <vector>
 #include "defs.h"
 
-namespace riscv_emu
+namespace riscv_emu::mem_io {
+class ram;
+
+class bus
 {
-    class ram;
+  public:
+    explicit bus(ram* mem_ptr);
 
-    class bus
+
+    template <UintFamily T>
+    [[nodiscard]]
+    T load(uint64_t addr) const;
+
+    template <UintFamily T>
+    void store(uint64_t addr, T data);
+
+    template <UintFamily T>
+    [[nodiscard]]
+    T load_reserved(uint64_t addr, size_t hart_id);
+
+    template <UintFamily T>
+    bool store_conditional(uint64_t addr, T data, size_t hart_id);
+
+    template <UintFamily T>
+    T handle_amo(amo_type type, uint64_t addr, T data);
+
+  private:
+    void clear_addr_reservations(uint64_t addr, uint8_t size);
+    void reserve_addr(uint64_t addr, uint8_t size, size_t hart_id);
+
+    [[nodiscard]]
+    bool holds_reservation(uint64_t addr, uint8_t size, size_t hart_id) const;
+
+    struct hart_res_entry
     {
-    public:
-        explicit bus(ram* mem_ptr);
+        uint64_t addr = 0;
+        uint8_t size = 0;
 
         [[nodiscard]]
-        uint64_t load(uint64_t addr, uint8_t size) const;
-        void store(uint64_t addr, uint64_t data, uint8_t size);
-
-        [[nodiscard]]
-        uint64_t load_reserved(uint64_t addr, uint8_t size, size_t hart_id);
-        bool store_conditional(uint64_t addr, uint64_t data, uint8_t size, size_t hart_id);
-
-        uint64_t handle_amo(amo_type type, uint64_t addr, uint64_t data, uint8_t size);
-
-    private:
-        void clear_addr_reservations(uint64_t addr, uint8_t size);
-        void reserve_addr(uint64_t addr, uint8_t size, size_t hart_id);
-
-        [[nodiscard]]
-        bool holds_reservation(uint64_t addr, uint8_t size, size_t hart_id) const;
-
-        struct hart_res_entry
+        bool valid() const
         {
-            uint64_t addr = 0;
-            uint8_t size = 0;
+            return size != 0;
+        }
 
-            [[nodiscard]]
-            bool valid() const {return size != 0; }
-            void invalidate() { size = 0; }
-        };
-
-        ram* main_memory;
-        std::vector<hart_res_entry> hart_reservations;
+        void invalidate() { size = 0; }
     };
-} // riscv_emu
 
-#endif //RISCV_EMU_BUS_H
+    ram* dram;
+    std::vector<hart_res_entry> hart_reservations;
+};
+} // namespace riscv_emu::mem_io
+
+#endif // RISCV_EMU_BUS_H

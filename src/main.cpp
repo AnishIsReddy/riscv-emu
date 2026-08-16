@@ -2,7 +2,8 @@
 
 #include "machine.h"
 
-std::vector<uint8_t> load_binary_file(const std::string& filename) {
+std::vector<uint8_t> load_binary_file(const std::string& filename)
+{
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
     const auto size = file.tellg();
     file.seekg(0);

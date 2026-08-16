@@ -7,9 +7,8 @@
 #include <cstdint>
 #include "defs.h"
 
-namespace riscv_emu
-{
-     instr_info decode(uint32_t raw);
-} // riscv_emu
+namespace riscv_emu {
+instr_info decode(uint32_t raw);
+} // namespace riscv_emu
 
-#endif //RISCV_EMU_DECODER_H
+#endif // RISCV_EMU_DECODER_H

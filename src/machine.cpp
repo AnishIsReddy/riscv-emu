@@ -23,7 +23,7 @@ void machine::run()
 {
     for (size_t i = 0; i < 1000000; i++) {
         m_harts[0].step();
-        // check shutdown address and break
+        // TBI check shutdown address and break
     }
 }
 

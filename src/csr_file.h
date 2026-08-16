@@ -11,11 +11,10 @@
 #include "defs.h"
 
 namespace riscv_emu {
-
 class csr_file
 {
-public:
-    explicit csr_file(const uint64_t hart_id) : mhartid(hart_id){}
+  public:
+    explicit csr_file(const uint64_t hart_id) : mhartid(hart_id) {}
 
     [[nodiscard]]
     std::expected<uint64_t, trap_cause> read(uint16_t addr, privilege_level priv) const;
@@ -33,51 +32,52 @@ public:
     void increment_cycle_count();
     void increment_retired_instructions();
 
-private:
-    static constexpr uint64_t MEDELEG_WRITE_MASK = 0xB3FF;  // delegatable exceptions, ECALL_M(11) & reserved(10,14) excluded
-    static constexpr uint64_t MIDELEG_WRITE_MASK = 0x222;   // S-mode interrupts (1,5,9); M-interrupts excluded
-    static constexpr uint64_t MTVEC_WRITE_MASK = ~0x2;      // everything except bit 1 should be writable
+  private:
+    static constexpr uint64_t MEDELEG_WRITE_MASK = 0xB3FF;
+    // delegatable exceptions, ECALL_M(11) & reserved(10,14) excluded
+    static constexpr uint64_t MIDELEG_WRITE_MASK = 0x222; // S-mode interrupts (1,5,9); M-interrupts excluded
+    static constexpr uint64_t MTVEC_WRITE_MASK = ~0x2; // everything except bit 1 should be writable
 
-    static constexpr uint64_t MIE_WRITE_MASK = 1 << interrupt_type::MACHINE_SOFTWARE
-                                             | 1 << interrupt_type::MACHINE_TIMER
-                                             | 1 << interrupt_type::MACHINE_EXTERNAL
-                                             | 1 << interrupt_type::SUPERVISOR_SOFTWARE
-                                             | 1 << interrupt_type::SUPERVISOR_TIMER
-                                             | 1 << interrupt_type::SUPERVISOR_EXTERNAL;
-                                             // M-Mode and S-Mode interrupts
+    static constexpr uint64_t MIE_WRITE_MASK = 1 << interrupt_type::MACHINE_SOFTWARE |
+                                               1 << interrupt_type::MACHINE_TIMER |
+                                               1 << interrupt_type::MACHINE_EXTERNAL |
+                                               1 << interrupt_type::SUPERVISOR_SOFTWARE |
+                                               1 << interrupt_type::SUPERVISOR_TIMER |
+                                               1 << interrupt_type::SUPERVISOR_EXTERNAL;
+    // M-Mode and S-Mode interrupts
 
-    static constexpr uint64_t MIP_WRITE_MASK = 1 << interrupt_type::MACHINE_SOFTWARE
-                                             | 1 << interrupt_type::SUPERVISOR_SOFTWARE;
-                                             // Software interrupts should be writable
+    static constexpr uint64_t MIP_WRITE_MASK =
+        1 << interrupt_type::MACHINE_SOFTWARE | 1 << interrupt_type::SUPERVISOR_SOFTWARE;
+    // Software interrupts should be writable
 
-
-    class mstatus_value {
-        static constexpr int MIE  = 3;
+    class mstatus_value
+    {
+        static constexpr int MIE = 3;
         static constexpr int MPIE = 7;
-        static constexpr int MPP  = 11;   // 2-bit field [12:11]
-        static constexpr int SIE  = 1;
+        static constexpr int MPP = 11; // 2-bit field [12:11]
+        static constexpr int SIE = 1;
         static constexpr int SPIE = 5;
-        static constexpr int SPP  = 8;    // 1-bit field
+        static constexpr int SPP = 8; // 1-bit field
         static constexpr int MPRV = 17;
-        static constexpr int TW   = 21;
-        static constexpr int TSR  = 22;
+        static constexpr int TW = 21;
+        static constexpr int TSR = 22;
 
-        // TODO after S & U Modes:
+        // TBI after S & U Modes:
         static constexpr uint64_t RESET = (uint64_t{0b11} << MPP);
         //                                 | (uint64_t{0} << 34)   // SXL = 2
         //                                 | (uint64_t{0} << 32);  // UXL = 2
 
-        static constexpr uint64_t MSTATUS_WRITE_MASK = (uint64_t{1} << MIE)
-                                                     | (uint64_t{1} << MPIE)
-                                                     | (uint64_t{0b11} << MPP)
-                                                     | (uint64_t{1} << MPRV)
-                                                     | (uint64_t{1} << TW)
-                                                     | (uint64_t{1} << TSR);
+        static constexpr uint64_t MSTATUS_WRITE_MASK = (uint64_t{1} << MIE) |
+                                                       (uint64_t{1} << MPIE) |
+                                                       (uint64_t{0b11} << MPP) |
+                                                       (uint64_t{1} << MPRV) |
+                                                       (uint64_t{1} << TW) |
+                                                       (uint64_t{1} << TSR);
 
-    public:
+      public:
         // single-bit fields: get/set
         [[nodiscard]]
-        bool mie()  const
+        bool mie() const
         {
             return raw >> MIE & 1;
         }
@@ -88,15 +88,9 @@ private:
             return raw >> MPIE & 1;
         }
 
-        void set_mie(const bool v)
-        {
-            set_bit(MIE,  v);
-        }
+        void set_mie(const bool v) { set_bit(MIE, v); }
 
-        void set_mpie(const bool v)
-        {
-            set_bit(MPIE, v);
-        }
+        void set_mpie(const bool v) { set_bit(MPIE, v); }
 
         // 2-bit MPP field [12:11]
         [[nodiscard]]
@@ -105,10 +99,7 @@ private:
             return raw >> MPP & 0b11ul;
         }
 
-        void set_mpp(const uint8_t mode)
-        {
-            raw = (raw & ~(0b11ul << MPP)) | (uint64_t{mode & 0b11u } << MPP);
-        }
+        void set_mpp(const uint8_t mode) { raw = (raw & ~(0b11ul << MPP)) | (uint64_t{mode & 0b11u} << MPP); }
 
         [[nodiscard]]
         uint8_t mprv() const
@@ -116,10 +107,7 @@ private:
             return raw >> MPRV & 1;
         }
 
-        void set_mprv(const bool v)
-        {
-            set_bit(MPRV, v);
-        }
+        void set_mprv(const bool v) { set_bit(MPRV, v); }
 
         [[nodiscard]]
         uint8_t tw() const
@@ -139,13 +127,11 @@ private:
             return raw;
         }
 
-        void write(const uint64_t value)
-        {
-            raw = (value & MSTATUS_WRITE_MASK) | (raw & ~MSTATUS_WRITE_MASK);
-        }
+        void write(const uint64_t value) { raw = (value & MSTATUS_WRITE_MASK) | (raw & ~MSTATUS_WRITE_MASK); }
 
-    private:
-        void set_bit(const int pos, const bool v) {
+      private:
+        void set_bit(const int pos, const bool v)
+        {
             if (v) {
                 raw |= (uint64_t{1} << pos);
             }
@@ -183,8 +169,6 @@ private:
     uint64_t menvcfg = 0;
     uint64_t mseccfg = 0;
 };
+} // namespace riscv_emu
 
-
-} // riscv_emu
-
-#endif //RISCV_EMU_CSR_H
+#endif // RISCV_EMU_CSR_H

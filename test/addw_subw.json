@@ -1,7 +1,0 @@
-{
-  "name": "addw_subw",
-  "regs": {
-    "x03": "0xFFFFFFFF80000000",
-    "x06": "-10"
-  }
-}

@@ -187,12 +187,7 @@ static instr_info decode_rtype(const uint32_t raw)
         itype = instr_type::INVALID;
     }
 
-    return instr_info{
-        .op_type = itype,
-        .rd = rd,
-        .rs1 = rs1,
-        .rs2 = rs2
-    };
+    return instr_info{.op_type = itype, .rd = rd, .rs1 = rs1, .rs2 = rs2};
 }
 
 static instr_type resolve_instr_type_OP_IMM(const uint8_t funct3, const bool use_alt_instr)
@@ -208,11 +203,11 @@ static instr_type resolve_instr_type_OP_IMM(const uint8_t funct3, const bool use
     case 0b011:
         return SLTIU;
     case 0b100:
-         return XORI;
+        return XORI;
     case 0b101:
         return use_alt_instr ? SRAI : SRLI;
     case 0b110:
-         return ORI;
+        return ORI;
     case 0b111:
         return ANDI;
     default:
@@ -308,12 +303,10 @@ static instr_info decode_itype(const uint32_t raw)
         imm = sign_extend(raw_imm, 12);
     }
 
-    const auto out = instr_info{
-        .imm = imm,
-        .op_type = itype,
-        .rd = static_cast<uint8_t>(raw >> 7 & 0x1F),
-        .rs1 = static_cast<uint8_t>(raw >> 15 & 0x1F)
-    };
+    const auto out = instr_info{.imm = imm,
+                                .op_type = itype,
+                                .rd = static_cast<uint8_t>(raw >> 7 & 0x1F),
+                                .rs1 = static_cast<uint8_t>(raw >> 15 & 0x1F)};
 
     return out;
 }
@@ -351,46 +344,38 @@ static instr_info decode_SYSTEM(const uint64_t raw)
 
     // csr func
     if (funct3 != 0) {
-        return instr_info {
-            .imm = static_cast<int64_t>(imm),
-            .op_type = resolve_csr_instr(funct3),
-            .rd = rd,
-            .rs1 = rs1
-        };
+        return instr_info{.imm = static_cast<int64_t>(imm), .op_type = resolve_csr_instr(funct3), .rd = rd, .rs1 = rs1};
     }
 
     if (imm == 0) {
-        return instr_info {
+        return instr_info{
             .op_type = instr_type::ECALL,
         };
     }
 
     if (imm == 1) {
-        return instr_info {
+        return instr_info{
             .op_type = instr_type::EBREAK,
         };
     }
 
     if (imm == 0x102) {
-        return instr_info {
+        return instr_info{
             .op_type = instr_type::SRET,
         };
     }
 
     if (imm == 0x302) {
-        return instr_info {
+        return instr_info{
             .op_type = instr_type::MRET,
         };
     }
 
     if (imm == 0x105) {
-        return instr_info {
-            .op_type = instr_type::WFI
-        };
+        return instr_info{.op_type = instr_type::WFI};
     }
 
-
-    return instr_info {.op_type = instr_type::INVALID};
+    return instr_info{.op_type = instr_type::INVALID};
 }
 
 static instr_info decode_stype(const uint32_t raw)
@@ -418,12 +403,10 @@ static instr_info decode_stype(const uint32_t raw)
     int64_t imm = ((raw >> 25 & 0x7F) << 5) | (raw >> 7 & 0x1F);
     imm = sign_extend(imm, 12);
 
-    const auto out = instr_info{
-        .imm = imm,
-        .op_type = itype,
-        .rs1 = static_cast<uint8_t>(raw >> 15 & 0x1F),
-        .rs2 = static_cast<uint8_t>(raw >> 20 & 0x1F)
-    };
+    const auto out = instr_info{.imm = imm,
+                                .op_type = itype,
+                                .rs1 = static_cast<uint8_t>(raw >> 15 & 0x1F),
+                                .rs2 = static_cast<uint8_t>(raw >> 20 & 0x1F)};
 
     return out;
 }
@@ -456,20 +439,16 @@ static instr_info decode_btype(const uint32_t raw)
         return instr_info{.op_type = instr_type::INVALID};
     }
 
-    int64_t imm = ((raw >> 31) & 1) << 12
-        | ((raw >> 7) & 1) << 11
-        | ((raw >> 25) & 0x3F) << 5
-        | ((raw >> 8) & 0xF) << 1;
+    int64_t imm =
+        ((raw >> 31) & 1) << 12 | ((raw >> 7) & 1) << 11 | ((raw >> 25) & 0x3F) << 5 | ((raw >> 8) & 0xF) << 1;
     if (raw >> 31 & 1) {
         imm |= ~0x1FFFl;
     }
 
-    const auto out = instr_info{
-        .imm = imm,
-        .op_type = itype,
-        .rs1 = static_cast<uint8_t>(raw >> 15 & 0x1F),
-        .rs2 = static_cast<uint8_t>(raw >> 20 & 0x1F)
-    };
+    const auto out = instr_info{.imm = imm,
+                                .op_type = itype,
+                                .rs1 = static_cast<uint8_t>(raw >> 15 & 0x1F),
+                                .rs2 = static_cast<uint8_t>(raw >> 20 & 0x1F)};
 
     return out;
 }
@@ -491,28 +470,18 @@ static instr_info decode_utype(const uint32_t raw)
 
     const auto imm = sign_extend(raw & 0xFFFFF000, 32);
 
-    const auto out = instr_info{
-        .imm = imm,
-        .op_type = itype,
-        .rd = static_cast<uint8_t>(raw >> 7 & 0x1F)
-    };
+    const auto out = instr_info{.imm = imm, .op_type = itype, .rd = static_cast<uint8_t>(raw >> 7 & 0x1F)};
 
     return out;
 }
 
 static instr_info decode_jtype(const uint32_t raw)
 {
-    int64_t imm = ((raw >> 31) & 1) << 20
-        | ((raw >> 12) & 0xFF) << 12
-        | ((raw >> 20) & 1) << 11
-        | ((raw >> 21) & 0x3FF) << 1;
+    int64_t imm =
+        ((raw >> 31) & 1) << 20 | ((raw >> 12) & 0xFF) << 12 | ((raw >> 20) & 1) << 11 | ((raw >> 21) & 0x3FF) << 1;
     imm = sign_extend(imm, 21);
 
-    const auto out = instr_info{
-        .imm = imm,
-        .op_type = instr_type::JAL,
-        .rd = static_cast<uint8_t>(raw >> 7 & 0x1F)
-    };
+    const auto out = instr_info{.imm = imm, .op_type = instr_type::JAL, .rd = static_cast<uint8_t>(raw >> 7 & 0x1F)};
 
     return out;
 }

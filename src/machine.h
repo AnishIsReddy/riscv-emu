@@ -7,24 +7,23 @@
 
 #include <vector>
 #include "bus.h"
-#include "ram.h"
 #include "hart.h"
+#include "ram.h"
 
-namespace riscv_emu
+namespace riscv_emu {
+class machine
 {
-    class machine
-    {
-    public:
-        machine();
-        void run();
-        void load(const uint8_t* data, std::size_t size) const;
-        void dump(std::ostream& os) const;
+  public:
+    machine();
+    void run();
+    void load(const uint8_t* data, std::size_t size) const;
+    void dump(std::ostream& os) const;
 
-    private:
-        ram m_ram;
-        bus m_bus;
-        std::vector<hart> m_harts;
-    };
-} // riscv_emu
+  private:
+    mem_io::ram m_ram;
+    mem_io::bus m_bus;
+    std::vector<hart> m_harts;
+};
+} // namespace riscv_emu
 
-#endif //RISCV_EMU_MACHINE_H
+#endif // RISCV_EMU_MACHINE_H

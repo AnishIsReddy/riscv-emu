@@ -2,33 +2,47 @@
 // Created by anish on 4/12/2026.
 //
 
-#include <cassert>
-
 #include "bus.h"
 #include "ram.h"
 
-using namespace riscv_emu;
+using namespace riscv_emu::mem_io;
 
-bus::bus(ram* mem_ptr) : main_memory(mem_ptr)
+bus::bus(ram* mem_ptr) : dram(mem_ptr)
 {
     hart_reservations.push_back(hart_res_entry{});
 }
 
-uint64_t bus::load(const uint64_t addr, const uint8_t size) const
+template <UintFamily T>
+T bus::load(const uint64_t addr) const
 {
-    return main_memory->read(addr, size);
+    return dram->read(addr, sizeof(T));
 }
 
-void bus::store(const uint64_t addr, const uint64_t data, const uint8_t size)
+template <UintFamily T>
+void bus::store(const uint64_t addr, const T data)
 {
-    clear_addr_reservations(addr, size);
-    main_memory->write(addr, data, size);
+    clear_addr_reservations(addr, sizeof(T));
+    dram->write(addr, data, sizeof(T));
 }
 
-uint64_t bus::load_reserved(const uint64_t addr, const uint8_t size, const size_t hart_id)
+template <UintFamily T>
+T bus::load_reserved(const uint64_t addr, const size_t hart_id)
 {
-    reserve_addr(addr, size, hart_id);
-    return load(addr, size);
+    static_assert(sizeof(T) == 4 || sizeof(T) == 8, "LR is only supported for 32-bit and 64-bit widths");
+    reserve_addr(addr, sizeof(T), hart_id);
+    return load<T>(addr);
+}
+
+template <UintFamily T>
+bool bus::store_conditional(const uint64_t addr, const T data, const size_t hart_id)
+{
+    static_assert(sizeof(T) == 4 || sizeof(T) == 8, "SC is only supported for 32-bit and 64-bit widths");
+    const bool ok = holds_reservation(addr, sizeof(T), hart_id);
+    hart_reservations[hart_id].invalidate();
+    if (ok) {
+        store<T>(addr, data);
+    }
+    return ok;
 }
 
 void bus::reserve_addr(const uint64_t addr, const uint8_t size, const size_t hart_id)
@@ -38,7 +52,7 @@ void bus::reserve_addr(const uint64_t addr, const uint8_t size, const size_t har
 
 bool bus::holds_reservation(const uint64_t addr, const uint8_t size, const size_t hart_id) const
 {
-    const auto & res = hart_reservations[hart_id];
+    const auto& res = hart_reservations[hart_id];
 
     if (!res.valid()) {
         return false;
@@ -47,19 +61,9 @@ bool bus::holds_reservation(const uint64_t addr, const uint8_t size, const size_
     return res.addr == addr && res.size == size;
 }
 
-bool bus::store_conditional(const uint64_t addr, const uint64_t data, const uint8_t size, const size_t hart_id)
-{
-    const bool ok = holds_reservation(addr, size, hart_id);
-    hart_reservations[hart_id].invalidate();
-    if (ok) {
-        store(addr, data, size);
-    }
-    return ok;
-}
-
 void bus::clear_addr_reservations(const uint64_t addr, const uint8_t size)
 {
-    for (auto & res : hart_reservations) {
+    for (auto& res : hart_reservations) {
         if (!res.valid()) {
             continue;
         }
@@ -70,120 +74,70 @@ void bus::clear_addr_reservations(const uint64_t addr, const uint8_t size)
     }
 }
 
-uint64_t bus::handle_amo(const amo_type type, const uint64_t addr, const uint64_t data, const uint8_t size)
+namespace {
+
+using namespace riscv_emu;
+
+template <std::unsigned_integral U>
+U amo_compute(const amo_type type, U data, U old_value)
 {
-    assert(size == 4 || size == 8);
+    using S = std::make_signed_t<U>;
+    using enum amo_type;
 
-    const uint64_t old_value = load(addr, size);
-    uint64_t new_value;
-
-    if (size == 8) {
-        switch (type) {
-            using enum amo_type;
-
-        case SWAP: {
-            new_value = data;
-            break;
-        }
-
-        case ADD: {
-            new_value = data + old_value;
-            break;
-        }
-
-        case XOR: {
-            new_value = data ^ old_value;
-            break;
-        }
-
-        case AND: {
-            new_value = data & old_value;
-            break;
-        }
-
-        case OR: {
-            new_value = data | old_value;
-            break;
-        }
-
-        case MIN: {
-            new_value = static_cast<int64_t>(data) < static_cast<int64_t>(old_value) ? data : old_value;
-            break;
-        }
-
-        case MAX: {
-            new_value = static_cast<int64_t>(data) > static_cast<int64_t>(old_value) ? data : old_value;
-            break;
-        }
-
-        case MINU: {
-            new_value = data < old_value ? data : old_value;
-            break;
-        }
-
-        case MAXU: {
-            new_value = data > old_value ? data : old_value;
-            break;
-        }
-        }
+    switch (type) {
+    case SWAP:
+        return data;
+    case ADD:
+        return static_cast<U>(data + old_value);
+    case XOR:
+        return data ^ old_value;
+    case AND:
+        return data & old_value;
+    case OR:
+        return data | old_value;
+    case MIN:
+        return std::min(static_cast<S>(data), static_cast<S>(old_value));
+    case MAX:
+        return std::max(static_cast<S>(data), static_cast<S>(old_value));
+    case MINU:
+        return std::min(data, old_value);
+    case MAXU:
+        return std::max(data, old_value);
     }
-    else {
-        const auto old_value_32 = static_cast<uint32_t>(old_value);
-        const auto data_32 = static_cast<uint32_t>(data);
-        uint32_t new_value_32;
+    std::unreachable();
+}
+} // namespace
 
-        switch (type) {
-            using enum amo_type;
+template <UintFamily T>
+T bus::handle_amo(const amo_type type, const uint64_t addr, const T data)
+{
+    static_assert(sizeof(T) == 4 || sizeof(T) == 8, "AMO op must be 32 or 64 bit");
 
-        case SWAP: {
-            new_value_32 = data_32;
-            break;
-        }
-
-        case ADD: {
-            new_value_32 = data_32 + old_value_32;
-            break;
-        }
-
-        case XOR: {
-            new_value_32 = data_32 ^ old_value_32;
-            break;
-        }
-
-        case AND: {
-            new_value_32 = data_32 & old_value_32;
-            break;
-        }
-
-        case OR: {
-            new_value_32 = data_32 | old_value_32;
-            break;
-        }
-
-        case MIN: {
-            new_value_32 = static_cast<int32_t>(data_32) < static_cast<int32_t>(old_value_32) ? data_32 : old_value_32;
-            break;
-        }
-
-        case MAX: {
-            new_value_32 = static_cast<int32_t>(data_32) > static_cast<int32_t>(old_value_32) ? data_32 : old_value_32;
-            break;
-        }
-
-        case MINU: {
-            new_value_32 = data_32 < old_value_32 ? data_32 : old_value_32;
-            break;
-        }
-
-        case MAXU: {
-            new_value_32 = data_32 > old_value_32 ? data_32 : old_value_32;
-            break;
-        }
-        }
-
-        new_value = new_value_32;
-    }
-    
-    store(addr, new_value, size);
+    const T old_value = load<T>(addr);
+    auto new_value = amo_compute<T>(type, data, old_value);
+    store<T>(addr, new_value);
     return old_value;
 }
+
+// Standard memory access (8, 16, 32, 64-bit)
+#define INST_BUS_MEM(T)                                                                                                \
+    template T bus::load<T>(uint64_t) const;                                                                           \
+    template void bus::store<T>(uint64_t, T);
+
+INST_BUS_MEM(uint8_t)
+INST_BUS_MEM(uint16_t)
+INST_BUS_MEM(uint32_t)
+INST_BUS_MEM(uint64_t)
+
+#undef INST_BUS_MEM
+
+// Atomic & LR/SC operations (only 32, 64-bit)
+#define INST_BUS_ATOMIC(T)                                                                                             \
+    template T bus::load_reserved<T>(uint64_t, size_t);                                                                \
+    template bool bus::store_conditional<T>(uint64_t, T, size_t);                                                      \
+    template T bus::handle_amo<T>(amo_type, uint64_t, T);
+
+INST_BUS_ATOMIC(uint32_t)
+INST_BUS_ATOMIC(uint64_t)
+
+#undef INST_BUS_ATOMIC

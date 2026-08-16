@@ -1,7 +1,0 @@
-{
-  "name": "amoswap_w",
-  "regs": {
-    "x07": "0x0000000012345678",
-    "x28": "0xFFFFFFFFAAAAAAAA"
-  }
-}

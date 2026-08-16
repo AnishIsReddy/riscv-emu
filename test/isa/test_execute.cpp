@@ -23,28 +23,28 @@
 #include <algorithm>
 
 #include "../../src/decode.h"
-#include "../../src/execute.h"
 #include "../../src/defs.h"
+#include "../../src/execute.h"
 
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <expected>
-#include <string>
-#include <vector>
-#include <variant>
-#include <type_traits>
-#include <unordered_map>
-#include <sstream>
+#include <format>
+#include <functional>
 #include <iostream>
 #include <meta>
 #include <print>
 #include <ranges>
-#include <unistd.h>
-#include <utility>
 #include <source_location>
-#include <format>
-#include <functional>
+#include <sstream>
+#include <string>
+#include <type_traits>
+#include <unistd.h>
+#include <unordered_map>
+#include <utility>
+#include <variant>
+#include <vector>
 
 using namespace riscv_emu;
 
@@ -52,24 +52,28 @@ using namespace riscv_emu;
 // Failure type + small formatting helpers
 // ===========================================================================
 namespace {
-    struct TestFailure
-    {
-        std::string msg;
-    };
-}
+struct TestFailure : std::exception
+{
+    std::string msg;
+    explicit TestFailure(std::string m) : msg{std::move(m)} {}
+    [[nodiscard]] const char* what() const noexcept override { return msg.c_str(); }
+};
+} // namespace
 
 static std::string loc(const std::source_location s = std::source_location::current())
 {
     return std::format("{}:{}: ", s.file_name(), s.line());
 }
 
-template <class E> requires std::is_enum_v<E>
+template <class E>
+    requires std::is_enum_v<E>
 static std::string_view enum_name(const E value)
 {
-    template for (constexpr auto e :
-                  std::define_static_array(std::meta::enumerators_of(^^E))) {
-        if (value == [:e:]) return std::meta::identifier_of(e);  // fine in C++26
-                  }
+    template for (constexpr auto e : std::define_static_array(std::meta::enumerators_of(^^E)))
+    {
+        if (value == [:e:])
+            return std::meta::identifier_of(e); // fine in C++26
+    }
     return "<unnamed>";
 }
 
@@ -81,9 +85,7 @@ static std::string show(const T& v)
         return v ? "true" : "false";
     }
     else if constexpr (std::is_enum_v<T>) {
-        return std::format("{}::{} ({})",
-                           std::meta::identifier_of(^^T), enum_name(v),
-                           std::to_underlying(v));
+        return std::format("{}::{} ({})", std::meta::identifier_of(^^T), enum_name(v), std::to_underlying(v));
     }
     else if constexpr (std::is_integral_v<T>) {
         // Sign-extend to 64-bit first so negatives show as full-width
@@ -105,18 +107,21 @@ static std::string show(const T& v)
 // Name the variant alternatives, in their declaration order in instr_effect.
 static std::string_view effect_name(const instr_effect& eff)
 {
-    return eff.effect.visit([]<class T>(const T&) {
-        constexpr auto name = std::meta::identifier_of(^^T);  // evaluated at compile time, per alternative
-        return name;
-    });
+    return eff.effect.visit(
+        []<class T>(const T&)
+        {
+            constexpr auto name = std::meta::display_string_of(^^T); // evaluated at compile time, per alternative
+            return name;
+        });
 }
 
 // Indent any continuation lines so multi-line failure messages stay readable.
 static std::string indent(const std::string& s)
 {
-    return s | std::views::split('\n')
-             | std::views::join_with(std::string_view{"\n      "})
-             | std::ranges::to<std::string>();
+    return s |
+           std::views::split('\n') |
+           std::views::join_with(std::string_view{"\n      "}) |
+           std::ranges::to<std::string>();
 }
 
 // ===========================================================================
@@ -133,54 +138,51 @@ static const T& expect_alt(const instr_effect& eff, const std::source_location s
     if (const T* p = std::get_if<T>(&eff.effect)) {
         return *p;
     }
-    constexpr auto want = std::meta::identifier_of(^^T);
-    throw TestFailure {
-        .msg = std::format("{}:{}: expected effect {}, but got {}",
-                                s.file_name(), s.line(), want, effect_name(eff))
-    };
+    constexpr auto want = std::meta::display_string_of(^^T);
+    throw TestFailure(
+        std::format("{}:{}: expected effect {}, but got {}", s.file_name(), s.line(), want, effect_name(eff)));
 }
 
 #define GET_ALT(EFF, T) expect_alt<T>(EFF, std::source_location::current())
 
-#define CHECK_EQ(GOT, WANT)                                                       \
-    do {                                                                          \
-        auto _got = (GOT);                                                        \
-        auto _want = (WANT);                                                      \
-        if (!(_got == _want))                                                     \
-            throw TestFailure{ loc() +                                            \
-                "CHECK_EQ(" #GOT ", " #WANT "): got=" + show(_got) +              \
-                " want=" + show(_want) };                                         \
-    } while (0)
+#define CHECK_EQ(GOT, WANT)                                                                                            \
+    do {                                                                                                               \
+        auto _got = (GOT);                                                                                             \
+        auto _want = (WANT);                                                                                           \
+        if (!(_got == _want))                                                                                          \
+            throw TestFailure(loc() + "CHECK_EQ(" #GOT ", " #WANT "): got=" + show(_got) + " want=" + show(_want));    \
+    }                                                                                                                  \
+    while (0)
 
-#define CHECK_TRUE(COND)                                                          \
-    do {                                                                          \
-        if (!(COND))                                                              \
-            throw TestFailure{ loc() +                                            \
-                "CHECK_TRUE(" #COND ") failed" };                                 \
-    } while (0)
+#define CHECK_TRUE(COND)                                                                                               \
+    do {                                                                                                               \
+        if (!(COND))                                                                                                   \
+            throw TestFailure(loc() + "CHECK_TRUE(" #COND ") failed");                                                 \
+    }                                                                                                                  \
+    while (0)
 
 // ===========================================================================
 // Test registry + self-registration
 // ===========================================================================
 namespace {
-    using TestCase = std::pair<const char*, void (*)()>;
+using TestCase = std::pair<const char*, void (*)()>;
 
-    std::vector<TestCase>& registry()
-    {
-        static std::vector<TestCase> r;
-        return r;
-    }
-
-
-    struct Registrar
-    {
-        Registrar(const char* n, void (*f)()) { registry().push_back({n, f}); }
-    };
+std::vector<TestCase>& registry()
+{
+    static std::vector<TestCase> r;
+    return r;
 }
 
-#define TEST(NAME)                                                                \
-    static void NAME();                                                           \
-    static Registrar reg_##NAME(#NAME, &NAME);                                    \
+
+struct Registrar
+{
+    Registrar(const char* n, void (*f)()) { registry().emplace_back(n, f); }
+};
+} // namespace
+
+#define TEST(NAME)                                                                                                     \
+    static void NAME();                                                                                                \
+    static Registrar reg_##NAME(#NAME, &NAME);                                                                         \
     static void NAME()
 
 // ===========================================================================
@@ -188,175 +190,180 @@ namespace {
 // Only a build-time dependency (binutils); cached per asm string.
 // ===========================================================================
 namespace assembler {
-    namespace {
-        struct ShellResult
-        {
-            int code;
-            std::string out;
-        };
-    }
+namespace {
+struct ShellResult
+{
+    int code;
+    std::string out;
+};
+} // namespace
 
-    static ShellResult run_shell(const std::string& cmd)
-    {
-        FILE* p = popen((cmd + " 2>&1").c_str(), "r");
-        if (!p) {
-            return {.code = -1, .out = "popen failed"};
-        }
-        std::string out;
-        char buf[4096];
-        size_t n;
-        while ((n = fread(buf, 1, sizeof buf, p)) > 0) {
-            out.append(buf, n);
-        }
-        const int status = pclose(p);
-        const int code = (status == -1) ? -1 : (WIFEXITED(status) ? WEXITSTATUS(status) : -1);
-        return {.code = code, .out = out};
+static ShellResult run_shell(const std::string& cmd)
+{
+    FILE* p = popen((cmd + " 2>&1").c_str(), "r");
+    if (!p) {
+        return {.code = -1, .out = "popen failed"};
     }
-
-    static std::string march()
-    {
-        if (const char* e = std::getenv("RISCV_MARCH")) {
-            return e;
-        }
-        return "rv64ima_zicsr_zifencei";
+    std::string out;
+    char buf[4096];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof buf, p)) > 0) {
+        out.append(buf, n);
     }
+    const int status = pclose(p);
+    const int code = (status == -1) ? -1 : (WIFEXITED(status) ? WEXITSTATUS(status) : -1);
+    return {.code = code, .out = out};
+}
 
-    static std::vector<std::string> candidate_prefixes()
-    {
-        std::vector<std::string> v;
-        if (const char* e = std::getenv("RISCV_PREFIX")) v.emplace_back(e);
-        v.insert(v.end(), {
-                     "riscv64-linux-gnu-",
-                     "riscv64-unknown-linux-gnu-",
-                     "riscv64-unknown-elf-",
-                     "riscv-none-elf-",
-                     "riscv64-elf-",
-                 });
-        return v;
+static std::string march()
+{
+    if (const char* e = std::getenv("RISCV_MARCH")) {
+        return e;
     }
+    return "rv64ima_zicsr_zifencei";
+}
 
-    // Resolved-once working prefix.
-    static std::string& cached_prefix()
-    {
-        static std::string p;
-        return p;
+static std::vector<std::string> candidate_prefixes()
+{
+    std::vector<std::string> v;
+    if (const char* e = std::getenv("RISCV_PREFIX"))
+        v.emplace_back(e);
+    v.insert(v.end(), {
+                          "riscv64-linux-gnu-",
+                          "riscv64-unknown-linux-gnu-",
+                          "riscv64-unknown-elf-",
+                          "riscv-none-elf-",
+                          "riscv64-elf-",
+                      });
+    return v;
+}
+
+// Resolved-once working prefix.
+static std::string& cached_prefix()
+{
+    static std::string p;
+    return p;
+}
+
+static bool& prefix_known()
+{
+    static bool b = false;
+    return b;
+}
+
+static std::expected<uint32_t, std::string> assemble_uncached(const std::string& line)
+{
+    char tmpl[] = "/tmp/rvtest_XXXXXX";
+    const int fd = mkstemp(tmpl);
+    if (fd < 0) {
+        return std::unexpected("mkstemp failed");
     }
-
-    static bool& prefix_known()
-    {
-        static bool b = false;
-        return b;
-    }
-
-    static std::expected<uint32_t, std::string> assemble_uncached(const std::string& line)
-    {
-        char tmpl[] = "/tmp/rvtest_XXXXXX";
-        const int fd = mkstemp(tmpl);
-        if (fd < 0) {
-            return std::unexpected("mkstemp failed");
-        }
-        // ".option norvc" forbids a 2-byte compressed form even if march enables 'c'.
-        // ".option norelax" stops branch/jump relaxation (which can expand one
-        // instruction into a multi-instruction veneer).
-        // "__here:" is an anchor label: write PC-relative branch/jump targets as
-        // e.g. "beq x1, x2, __here + 8" so the offset is encoded directly instead
-        // of being treated as an absolute address that needs relocation.
-        const std::string src = ".option norvc\n.option norelax\n.text\n__here:\n" + line + "\n";
-        if (write(fd, src.data(), src.size()) < 0) {
-            close(fd);
-            return std::unexpected("write failed");
-        }
+    // ".option norvc" forbids a 2-byte compressed form even if march enables 'c'.
+    // ".option norelax" stops branch/jump relaxation (which can expand one
+    // instruction into a multi-instruction veneer).
+    // "__here:" is an anchor label: write PC-relative branch/jump targets as
+    // e.g. "beq x1, x2, __here + 8" so the offset is encoded directly instead
+    // of being treated as an absolute address that needs relocation.
+    const std::string src = ".option norvc\n.option norelax\n.text\n__here:\n" + line + "\n";
+    if (write(fd, src.data(), src.size()) < 0) {
         close(fd);
-
-        const std::string s = tmpl;
-        const std::string obj = s + ".o";
-        const std::string bin = s + ".bin";
-        auto cleanup = [&]
-        {
-            unlink(s.c_str());
-            unlink(obj.c_str());
-            unlink(bin.c_str());
-        };
-
-        const std::vector<std::string> prefixes =
-            prefix_known() ? std::vector{cached_prefix()} : candidate_prefixes();
-
-        std::string tried;
-        for (const auto& pre : prefixes) {
-            auto [code1, out1] = run_shell(pre + "as -march=" + march() + " -o " + obj + " " + s);
-            if (code1 != 0) {
-                tried += "  [" + pre + "as] " + out1;
-                continue;
-            }
-
-            auto [code2, out2] = run_shell(pre + "objcopy -O binary -j .text " + obj + " " + bin);
-            if (code2 != 0) {
-                tried += "  [" + pre + "objcopy] " + out2;
-                continue;
-            }
-
-            FILE* f = fopen(bin.c_str(), "rb");
-            if (!f) {
-                tried += "  [open " + bin + "] failed\n";
-                continue;
-            }
-
-            unsigned char b[8];
-            const size_t n = fread(b, 1, sizeof b, f);
-            fclose(f);
-            if (n != 4) {
-                cleanup();
-                auto out = std::format("assembling '{}' produced {} bytes "
-                                       "(expected 4 -- pseudo-instruction expansion or wrong width?)",
-                                        line, std::to_string(n));
-                return std::unexpected(out);
-            }
-            cached_prefix() = pre;
-            prefix_known() = true;
-            cleanup();
-            return static_cast<uint32_t>(b[0]) | (static_cast<uint32_t>(b[1]) << 8) |
-                (static_cast<uint32_t>(b[2]) << 16) | (static_cast<uint32_t>(b[3]) << 24);
-        }
-        cleanup();
-        return std::unexpected("no working RISC-V assembler found (set RISCV_PREFIX). Tried:\n" + tried);
+        return std::unexpected("write failed");
     }
+    close(fd);
 
-    // Public: throws TestFailure on toolchain/encoding errors so the test reports a
-    // clean FAIL with the assembler's message rather than aborting the run.
-    static uint32_t assemble(const std::string& line)
+    const std::string s = tmpl;
+    const std::string obj = s + ".o";
+    const std::string bin = s + ".bin";
+    auto cleanup = [&]
     {
-        static std::unordered_map<std::string, uint32_t> cache;
-        if (const auto it = cache.find(line); it != cache.end()) return it->second;
-        auto res = assemble_uncached(line);
-        if (!res.has_value()) {
-            throw TestFailure{res.error()};
+        unlink(s.c_str());
+        unlink(obj.c_str());
+        unlink(bin.c_str());
+    };
+
+    const std::vector<std::string> prefixes = prefix_known() ? std::vector{cached_prefix()} : candidate_prefixes();
+
+    std::string tried;
+    for (const auto& pre : prefixes) {
+        auto [code1, out1] = run_shell(std::format("{}as -march={} -o {} {}", pre, march(), obj, s));
+        if (code1 != 0) {
+            tried += std::format("  [{}as] {}", pre, out1);
+            continue;
         }
-        cache.emplace(line, res.value());
-        return res.value();
+
+        auto [code2, out2] = run_shell(std::format("{}objcopy -O binary -j .text {} {}", pre, obj, bin));
+        if (code2 != 0) {
+            tried += std::format("  [{}objcopy] {}", pre, out2);
+            continue;
+        }
+
+        FILE* f = fopen(bin.c_str(), "rb");
+        if (!f) {
+            tried += std::format("  [open {}] failed\n", bin);
+            continue;
+        }
+
+        unsigned char b[8];
+        const size_t n = fread(b, 1, sizeof b, f);
+        fclose(f);
+        if (n != 4) {
+            cleanup();
+            auto out = std::format("assembling '{}' produced {} bytes "
+                                   "(expected 4 -- pseudo-instruction expansion or wrong width?)",
+                                   line, std::to_string(n));
+            return std::unexpected(out);
+        }
+        cached_prefix() = pre;
+        prefix_known() = true;
+        cleanup();
+        return static_cast<uint32_t>(b[0]) |
+               (static_cast<uint32_t>(b[1]) << 8) |
+               (static_cast<uint32_t>(b[2]) << 16) |
+               (static_cast<uint32_t>(b[3]) << 24);
     }
-} // namespace asmbl
+    cleanup();
+    return std::unexpected("no working RISC-V assembler found (set RISCV_PREFIX). Tried:\n" + tried);
+}
+
+// Public: throws TestFailure on toolchain/encoding errors so the test reports a
+// clean FAIL with the assembler's message rather than aborting the run.
+static uint32_t assemble(const std::string& line)
+{
+    static std::unordered_map<std::string, uint32_t> cache;
+    if (const auto it = cache.find(line); it != cache.end())
+        return it->second;
+    auto res = assemble_uncached(line);
+    if (!res.has_value()) {
+        throw TestFailure{res.error()};
+    }
+    cache.emplace(line, res.value());
+    return res.value();
+}
+} // namespace assembler
 
 // ===========================================================================
 // Fixture: holds the inputs execute() reads (registers, pc, privilege).
 // ===========================================================================
 namespace {
-    struct Fixture
+struct Fixture
+{
+    uint64_t regs[REG_COUNT] = {}; // x0..x31, x0 stays 0
+    uint64_t pc = 0x8000'0000;
+    privilege_level priv = privilege_level::M;
+
+    [[nodiscard]]
+    instr_effect run(const uint32_t word) const
     {
-        uint64_t regs[REG_COUNT] = {}; // x0..x31, x0 stays 0
-        uint64_t pc = 0x8000'0000;
-        privilege_level priv = privilege_level::M;
+        return execute(decode(word), regs, pc, priv);
+    }
 
-        instr_effect run(const uint32_t word) const
-        {
-            return execute(decode(word), regs, pc, priv);
-        }
-
-        instr_effect run(const std::string& asm_line) const
-        {
-            return run(assembler::assemble(asm_line));
-        }
-    };
-}
+    [[nodiscard]]
+    instr_effect run(const std::string& asm_line) const
+    {
+        return run(assembler::assemble(asm_line));
+    }
+};
+} // namespace
 
 // ===========================================================================
 // Tests
@@ -658,7 +665,7 @@ TEST(jal_backward_offset)
     const auto e = f.run("jal x1, __here - 8");
     auto& u = GET_ALT(e, instr_effect::update_rd);
     CHECK_EQ(static_cast<int>(u.rd), 1);
-    CHECK_EQ(u.value, f.pc + 4);   // link
+    CHECK_EQ(u.value, f.pc + 4); // link
     CHECK_EQ(e.new_pc, f.pc - 8);
 }
 
@@ -787,10 +794,9 @@ TEST(lw_emits_signed_word_load)
     Fixture f;
     f.regs[2] = 0x1000;
     const auto e = f.run("lw x1, 8(x2)");
-    auto& l = GET_ALT(e, instr_effect::load_rd_from_mem);
+    auto& l = GET_ALT(e, instr_effect::load_rd_from_mem<uint32_t>);
     CHECK_EQ(static_cast<int>(l.rd), 1);
     CHECK_EQ(l.addr, static_cast<uint64_t>(0x1008));
-    CHECK_EQ(static_cast<int>(l.size), 4);
     CHECK_EQ(l.sign_ext, true);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
@@ -800,10 +806,9 @@ TEST(lb_signed_byte_load)
     Fixture f;
     f.regs[2] = 0x1000;
     const auto e = f.run("lb x1, 8(x2)");
-    auto& l = GET_ALT(e, instr_effect::load_rd_from_mem);
+    auto& l = GET_ALT(e, instr_effect::load_rd_from_mem<uint8_t>);
     CHECK_EQ(static_cast<int>(l.rd), 1);
     CHECK_EQ(l.addr, static_cast<uint64_t>(0x1008));
-    CHECK_EQ(static_cast<int>(l.size), 1);
     CHECK_EQ(l.sign_ext, true);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
@@ -813,8 +818,7 @@ TEST(lh_signed_halfword_load)
     Fixture f;
     f.regs[2] = 0x1000;
     const auto e = f.run("lh x1, 8(x2)");
-    auto& l = GET_ALT(e, instr_effect::load_rd_from_mem);
-    CHECK_EQ(static_cast<int>(l.size), 2);
+    auto& l = GET_ALT(e, instr_effect::load_rd_from_mem<uint16_t>);
     CHECK_EQ(l.sign_ext, true);
     CHECK_EQ(l.addr, static_cast<uint64_t>(0x1008));
     CHECK_EQ(e.new_pc, f.pc + 4);
@@ -825,8 +829,7 @@ TEST(lbu_unsigned_byte_load)
     Fixture f;
     f.regs[2] = 0x1000;
     const auto e = f.run("lbu x1, 8(x2)");
-    auto& l = GET_ALT(e, instr_effect::load_rd_from_mem);
-    CHECK_EQ(static_cast<int>(l.size), 1);
+    auto& l = GET_ALT(e, instr_effect::load_rd_from_mem<uint8_t>);
     CHECK_EQ(l.sign_ext, false);
     CHECK_EQ(l.addr, static_cast<uint64_t>(0x1008));
     CHECK_EQ(e.new_pc, f.pc + 4);
@@ -837,8 +840,7 @@ TEST(lhu_unsigned_halfword_load)
     Fixture f;
     f.regs[2] = 0x1000;
     const auto e = f.run("lhu x1, 8(x2)");
-    auto& l = GET_ALT(e, instr_effect::load_rd_from_mem);
-    CHECK_EQ(static_cast<int>(l.size), 2);
+    auto& l = GET_ALT(e, instr_effect::load_rd_from_mem<uint16_t>);
     CHECK_EQ(l.sign_ext, false);
     CHECK_EQ(l.addr, static_cast<uint64_t>(0x1008));
     CHECK_EQ(e.new_pc, f.pc + 4);
@@ -849,8 +851,7 @@ TEST(lwu_unsigned_word_load)
     Fixture f;
     f.regs[2] = 0x1000;
     const auto e = f.run("lwu x1, 8(x2)");
-    auto& l = GET_ALT(e, instr_effect::load_rd_from_mem);
-    CHECK_EQ(static_cast<int>(l.size), 4);
+    auto& l = GET_ALT(e, instr_effect::load_rd_from_mem<uint32_t>);
     CHECK_EQ(l.sign_ext, false);
     CHECK_EQ(l.addr, static_cast<uint64_t>(0x1008));
     CHECK_EQ(e.new_pc, f.pc + 4);
@@ -861,11 +862,9 @@ TEST(ld_doubleword_load)
     Fixture f;
     f.regs[2] = 0x1000;
     const auto e = f.run("ld x1, 8(x2)");
-    auto& l = GET_ALT(e, instr_effect::load_rd_from_mem);
+    auto& l = GET_ALT(e, instr_effect::load_rd_from_mem<uint64_t>);
     CHECK_EQ(static_cast<int>(l.rd), 1);
-    CHECK_EQ(static_cast<int>(l.size), 8);
     CHECK_EQ(l.addr, static_cast<uint64_t>(0x1008));
-    // sign_ext is moot for an 8-byte load; not asserted.
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -881,10 +880,9 @@ TEST(sb_byte_store)
     f.regs[2] = 0x1000;
     f.regs[3] = 0xAB;
     const auto e = f.run("sb x3, 8(x2)");
-    auto& s = GET_ALT(e, instr_effect::store_mem);
+    auto& s = GET_ALT(e, instr_effect::store_mem<uint8_t>);
     CHECK_EQ(s.addr, static_cast<uint64_t>(0x1008));
-    CHECK_EQ(s.value, static_cast<uint64_t>(0xAB));
-    CHECK_EQ(static_cast<int>(s.size), 1);
+    CHECK_EQ(s.value, static_cast<uint8_t>(0xAB));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -894,10 +892,9 @@ TEST(sh_halfword_store)
     f.regs[2] = 0x1000;
     f.regs[3] = 0xABCD;
     const auto e = f.run("sh x3, 8(x2)");
-    auto& s = GET_ALT(e, instr_effect::store_mem);
+    auto& s = GET_ALT(e, instr_effect::store_mem<uint16_t>);
     CHECK_EQ(s.addr, static_cast<uint64_t>(0x1008));
-    CHECK_EQ(s.value, static_cast<uint64_t>(0xABCD));
-    CHECK_EQ(static_cast<int>(s.size), 2);
+    CHECK_EQ(s.value, static_cast<uint16_t>(0xABCD));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -907,10 +904,9 @@ TEST(sw_word_store)
     f.regs[2] = 0x1000;
     f.regs[3] = 0xDEADBEEF;
     const auto e = f.run("sw x3, 8(x2)");
-    auto& s = GET_ALT(e, instr_effect::store_mem);
+    auto& s = GET_ALT(e, instr_effect::store_mem<uint32_t>);
     CHECK_EQ(s.addr, static_cast<uint64_t>(0x1008));
-    CHECK_EQ(s.value, static_cast<uint64_t>(0xDEADBEEF));
-    CHECK_EQ(static_cast<int>(s.size), 4);
+    CHECK_EQ(s.value, static_cast<uint32_t>(0xDEADBEEF));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -920,10 +916,9 @@ TEST(sd_doubleword_store)
     f.regs[2] = 0x1000;
     f.regs[3] = 0xDEADBEEFCAFEBABEULL;
     const auto e = f.run("sd x3, 8(x2)");
-    auto& s = GET_ALT(e, instr_effect::store_mem);
+    auto& s = GET_ALT(e, instr_effect::store_mem<uint64_t>);
     CHECK_EQ(s.addr, static_cast<uint64_t>(0x1008));
     CHECK_EQ(s.value, static_cast<uint64_t>(0xDEADBEEFCAFEBABEULL));
-    CHECK_EQ(static_cast<int>(s.size), 8);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1078,7 +1073,7 @@ TEST(mulhsu_signed_times_unsigned_high_bits)
 {
     Fixture f;
     f.regs[2] = static_cast<uint64_t>(-1); // signed -1
-    f.regs[3] = 2;                          // unsigned 2  -> product -2
+    f.regs[3] = 2; // unsigned 2  -> product -2
     const auto e = f.run("mulhsu x1, x2, x3");
     const auto& [rd, value] = GET_ALT(e, instr_effect::update_rd);
     CHECK_EQ(value, static_cast<uint64_t>(0xFFFF'FFFF'FFFF'FFFFULL)); // high of -2
@@ -1204,7 +1199,7 @@ TEST(mulw_sign_extends_low_32_product)
 {
     Fixture f;
     f.regs[2] = 0xFFFF'FFFFULL; // low32 = -1
-    f.regs[3] = 2;              // low32 product = 0xFFFFFFFE
+    f.regs[3] = 2; // low32 product = 0xFFFFFFFE
     const auto e = f.run("mulw x1, x2, x3");
     auto& u = GET_ALT(e, instr_effect::update_rd);
     CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'FFFF'FFFEULL));
@@ -1237,7 +1232,7 @@ TEST(remw_sign_follows_dividend)
 {
     Fixture f;
     f.regs[2] = 0xFFFF'FFF9ULL; // low32 = -7
-    f.regs[3] = 3;              // -7 % 3 = -1
+    f.regs[3] = 3; // -7 % 3 = -1
     const auto e = f.run("remw x1, x2, x3");
     auto& u = GET_ALT(e, instr_effect::update_rd);
     CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'FFFF'FFFFULL));
@@ -1264,10 +1259,9 @@ TEST(lr_w_emits_word_load_reserved)
     Fixture f;
     f.regs[2] = 0x2000;
     const auto e = f.run("lr.w x1, (x2)");
-    auto& l = GET_ALT(e, instr_effect::load_reserved);
+    auto& l = GET_ALT(e, instr_effect::load_reserved<uint32_t>);
     CHECK_EQ(static_cast<int>(l.rd), 1);
     CHECK_EQ(l.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(static_cast<int>(l.size), 4);
     CHECK_EQ(l.sign_ext, true);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
@@ -1277,25 +1271,22 @@ TEST(lr_d_emits_doubleword_load_reserved)
     Fixture f;
     f.regs[2] = 0x2000;
     const auto e = f.run("lr.d x1, (x2)");
-    auto& l = GET_ALT(e, instr_effect::load_reserved);
+    auto& l = GET_ALT(e, instr_effect::load_reserved<uint64_t>);
     CHECK_EQ(static_cast<int>(l.rd), 1);
     CHECK_EQ(l.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(static_cast<int>(l.size), 8);
-    // sign_ext moot for 8-byte; not asserted.
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
 TEST(sc_w_emits_word_store_conditional)
 {
     Fixture f;
-    f.regs[2] = 0x2000;       // addr
-    f.regs[3] = 0xCAFE;       // value
+    f.regs[2] = 0x2000; // addr
+    f.regs[3] = 0xCAFE; // value
     const auto e = f.run("sc.w x1, x3, (x2)");
-    auto& s = GET_ALT(e, instr_effect::store_conditional);
+    auto& s = GET_ALT(e, instr_effect::store_conditional<uint32_t>);
     CHECK_EQ(static_cast<int>(s.rd), 1);
     CHECK_EQ(s.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(s.value, static_cast<uint64_t>(0xCAFE));
-    CHECK_EQ(static_cast<int>(s.size), 4);
+    CHECK_EQ(s.value, static_cast<uint32_t>(0xCAFE));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1305,11 +1296,10 @@ TEST(sc_d_emits_doubleword_store_conditional)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x1122'3344'5566'7788ULL;
     const auto e = f.run("sc.d x1, x3, (x2)");
-    auto& s = GET_ALT(e, instr_effect::store_conditional);
+    auto& s = GET_ALT(e, instr_effect::store_conditional<uint64_t>);
     CHECK_EQ(static_cast<int>(s.rd), 1);
     CHECK_EQ(s.addr, static_cast<uint64_t>(0x2000));
     CHECK_EQ(s.value, static_cast<uint64_t>(0x1122'3344'5566'7788ULL));
-    CHECK_EQ(static_cast<int>(s.size), 8);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1326,12 +1316,11 @@ TEST(amoswap_w_emits_swap_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amoswap.w x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::SWAP));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 4);
+    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
     CHECK_EQ(a.sign_ext, true);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
@@ -1342,12 +1331,11 @@ TEST(amoadd_w_emits_add_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amoadd.w x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::ADD));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 4);
+    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
     CHECK_EQ(a.sign_ext, true);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
@@ -1358,12 +1346,11 @@ TEST(amoxor_w_emits_xor_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amoxor.w x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::XOR));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 4);
+    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
     CHECK_EQ(a.sign_ext, true);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
@@ -1374,12 +1361,11 @@ TEST(amoand_w_emits_and_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amoand.w x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::AND));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 4);
+    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
     CHECK_EQ(a.sign_ext, true);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
@@ -1390,12 +1376,11 @@ TEST(amoor_w_emits_or_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amoor.w x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::OR));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 4);
+    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
     CHECK_EQ(a.sign_ext, true);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
@@ -1406,12 +1391,11 @@ TEST(amomin_w_emits_min_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amomin.w x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::MIN));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 4);
+    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
     CHECK_EQ(a.sign_ext, true);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
@@ -1422,12 +1406,11 @@ TEST(amomax_w_emits_max_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amomax.w x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::MAX));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 4);
+    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
     CHECK_EQ(a.sign_ext, true);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
@@ -1438,12 +1421,11 @@ TEST(amominu_w_emits_minu_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amominu.w x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::MINU));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 4);
+    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
     CHECK_EQ(a.sign_ext, true);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
@@ -1454,17 +1436,16 @@ TEST(amomaxu_w_emits_maxu_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amomaxu.w x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::MAXU));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 4);
+    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
     CHECK_EQ(a.sign_ext, true);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
-// --- 64-bit AMOs: size 8; sign_ext moot for 8-byte, not asserted -----------
+// --- 64-bit AMOs: sign_ext moot for 8-byte, not asserted -----------------
 
 TEST(amoswap_d_emits_swap_rmw)
 {
@@ -1472,12 +1453,11 @@ TEST(amoswap_d_emits_swap_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amoswap.d x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::SWAP));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
     CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 8);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1487,12 +1467,11 @@ TEST(amoadd_d_emits_add_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amoadd.d x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::ADD));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
     CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 8);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1502,12 +1481,11 @@ TEST(amoxor_d_emits_xor_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amoxor.d x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::XOR));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
     CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 8);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1517,12 +1495,11 @@ TEST(amoand_d_emits_and_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amoand.d x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::AND));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
     CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 8);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1532,12 +1509,11 @@ TEST(amoor_d_emits_or_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amoor.d x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::OR));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
     CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 8);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1547,12 +1523,11 @@ TEST(amomin_d_emits_min_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amomin.d x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::MIN));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
     CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 8);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1562,12 +1537,11 @@ TEST(amomax_d_emits_max_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amomax.d x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::MAX));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
     CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 8);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1577,12 +1551,11 @@ TEST(amominu_d_emits_minu_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amominu.d x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::MINU));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
     CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 8);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1592,12 +1565,11 @@ TEST(amomaxu_d_emits_maxu_rmw)
     f.regs[2] = 0x2000;
     f.regs[3] = 0x55;
     const auto e = f.run("amomaxu.d x1, x3, (x2)");
-    auto& a = GET_ALT(e, instr_effect::amo_rmw);
+    auto& a = GET_ALT(e, instr_effect::amo_rmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(amo_type::MAXU));
     CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
     CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
-    CHECK_EQ(static_cast<int>(a.size), 8);
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1785,33 +1757,40 @@ TEST(wfi_emits_handle_wfi)
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
-    // ===========================================================================
-    // main: arg parsing + run loop (each test wrapped in try/catch)
-    // ===========================================================================
+// ===========================================================================
+// main: arg parsing + run loop (each test wrapped in try/catch)
+// ===========================================================================
 namespace {
-    enum class match_policy { exact, contains, prefix };
+enum class match_policy
+{
+    exact,
+    contains,
+    prefix
+};
 
-    // string -> enum, via the same reflection loop enum_name uses in reverse.
-    template <class E> requires std::is_enum_v<E>
-    std::optional<E> enum_from_name(const std::string_view s)
+// string -> enum, via the same reflection loop enum_name uses in reverse.
+template <class E>
+    requires std::is_enum_v<E>
+std::optional<E> enum_from_name(const std::string_view s)
+{
+    template for (constexpr auto e : std::define_static_array(std::meta::enumerators_of(^^E)))
     {
-        template for (constexpr auto e : std::define_static_array(std::meta::enumerators_of(^^E))) {
-            if (s == std::meta::identifier_of(e)) return [:e:];
-                      }
-        return std::nullopt;
+        if (s == std::meta::identifier_of(e))
+            return [:e:];
     }
-
-    void print_usage(const char* argv0)
-    {
-        std::print(
-            "usage: {} [--list] [--filter=POLICY] [NAME...]\n"
-            "  NAME...          run only tests matching a given NAME (all if none given)\n"
-            "  --filter=POLICY  how NAMEs match: exact (default) | contains\n"
-            "  --list, -l       print selected test names, one per line\n"
-            "exit code: 0 = all selected passed, 1 = at least one failed, 2 = bad args.\n",
-            argv0);
-    }
+    return std::nullopt;
 }
+
+void print_usage(const char* argv0)
+{
+    std::print("usage: {} [--list] [--filter=POLICY] [NAME...]\n"
+               "  NAME...          run only tests matching a given NAME (all if none given)\n"
+               "  --filter=POLICY  how NAMEs match: exact (default) | contains\n"
+               "  --list, -l       print selected test names, one per line\n"
+               "exit code: 0 = all selected passed, 1 = at least one failed, 2 = bad args.\n",
+               argv0);
+}
+} // namespace
 
 int main(const int argc, char** argv)
 {
@@ -1820,9 +1799,10 @@ int main(const int argc, char** argv)
     std::vector<std::string_view> patterns;
 
     int i = 1;
-    for (; i < argc; ++i) {                     // flags phase
+    for (; i < argc; ++i) { // flags phase
         const std::string_view a = argv[i];
-        if (!a.starts_with('-')) break;         // first non-flag: switch phases
+        if (!a.starts_with('-'))
+            break; // first non-flag: switch phases
         if (a == "--list" || a == "-l") {
             list = true;
         }
@@ -1845,7 +1825,8 @@ int main(const int argc, char** argv)
             return 2;
         }
     }
-    for (; i < argc; ++i) patterns.emplace_back(argv[i]);   // trailing names
+    for (; i < argc; ++i)
+        patterns.emplace_back(argv[i]); // trailing names
 
     const auto selected = [&](const std::string_view name)
     {
@@ -1859,19 +1840,13 @@ int main(const int argc, char** argv)
             using enum match_policy;
 
         case exact:
-            predicate = [&](const std::string_view pattern) {
-               return name == pattern;
-            };
+            predicate = [&](const std::string_view pattern) { return name == pattern; };
             break;
         case contains:
-            predicate = [&](const std::string_view pattern) {
-               return name.find(pattern) != std::string_view::npos;
-            };
+            predicate = [&](const std::string_view pattern) { return name.find(pattern) != std::string_view::npos; };
             break;
         case prefix:
-            predicate = [&](const std::string_view pattern) {
-                return name.rfind(pattern,0) == 0;
-            };
+            predicate = [&](const std::string_view pattern) { return name.rfind(pattern, 0) == 0; };
             break;
         default:
             std::unreachable();
@@ -1890,7 +1865,8 @@ int main(const int argc, char** argv)
 
     int passed = 0, failed = 0;
     for (const auto& [name, fn] : registry()) {
-        if (!selected(name)) continue;
+        if (!selected(name))
+            continue;
         try {
             fn();
             std::cout << "PASS: " << name << std::endl;
@@ -1910,9 +1886,9 @@ int main(const int argc, char** argv)
         }
     }
 
-    if (passed+failed > 0) {
+    if (passed + failed > 0) {
         std::cout << "\n" << "------------------------------------------------------------" << "\n";
-        std::print("SUMMARY: {}/{} passed", passed, passed+failed);
+        std::print("SUMMARY: {}/{} passed", passed, passed + failed);
         if (failed > 0) {
             std::print(", {} failed", failed);
         }
