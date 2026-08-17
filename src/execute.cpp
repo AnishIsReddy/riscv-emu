@@ -11,10 +11,10 @@
 
 using namespace riscv_emu;
 
-instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[REG_COUNT], const uint64_t pc,
-                                const privilege_level priv)
+InstrEffect riscv_emu::execute(const InstrInfo instr, const uint64_t reg_file[REG_COUNT], const uint64_t pc,
+                                const PrivilegeLevel priv)
 {
-    instr_effect out = {.effect = instr_effect::no_effect{}, .new_pc = pc + 4};
+    InstrEffect out = {.effect = InstrEffect::NoEffect{}, .new_pc = pc + 4};
 
     const uint8_t shift_amt_imm = instr.imm & 0x3F;
     const uint8_t shift_amt_imm_32 = instr.imm & 0x1F;
@@ -22,22 +22,22 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
     const uint8_t shift_amt_rs2_32 = reg_file[instr.rs2] & 0x1F;
 
     switch (instr.op_type) {
-        using enum instr_type;
+        using enum InstrType;
     case LUI: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = static_cast<uint64_t>(instr.imm)};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = static_cast<uint64_t>(instr.imm)};
         return out;
     }
     case AUIPC: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = pc + instr.imm};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = pc + instr.imm};
         return out;
     }
     case JAL: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = pc + 4};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = pc + 4};
         out.new_pc = pc + instr.imm;
         return out;
     }
     case JALR: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = pc + 4};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = pc + 4};
         out.new_pc = (instr.imm + reg_file[instr.rs1]) & ~0x1;
         return out;
     }
@@ -78,126 +78,126 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
         return out;
     }
     case LB: {
-        out.effect = instr_effect::load_rd_from_mem<uint8_t>{
+        out.effect = InstrEffect::LoadRdFromMem<uint8_t>{
             .rd = instr.rd, .addr = reg_file[instr.rs1] + instr.imm, .sign_ext = true};
         return out;
     }
     case LH: {
-        out.effect = instr_effect::load_rd_from_mem<uint16_t>{
+        out.effect = InstrEffect::LoadRdFromMem<uint16_t>{
             .rd = instr.rd, .addr = reg_file[instr.rs1] + instr.imm, .sign_ext = true};
         return out;
     }
     case LW: {
-        out.effect = instr_effect::load_rd_from_mem<uint32_t>{
+        out.effect = InstrEffect::LoadRdFromMem<uint32_t>{
             .rd = instr.rd, .addr = reg_file[instr.rs1] + instr.imm, .sign_ext = true};
         return out;
     }
     case LBU: {
-        out.effect = instr_effect::load_rd_from_mem<uint8_t>{
+        out.effect = InstrEffect::LoadRdFromMem<uint8_t>{
             .rd = instr.rd, .addr = reg_file[instr.rs1] + instr.imm, .sign_ext = false};
         return out;
     }
     case LHU: {
-        out.effect = instr_effect::load_rd_from_mem<uint16_t>{
+        out.effect = InstrEffect::LoadRdFromMem<uint16_t>{
             .rd = instr.rd, .addr = reg_file[instr.rs1] + instr.imm, .sign_ext = false};
         return out;
     }
     case SB: {
-        out.effect = instr_effect::store_mem{.addr = reg_file[instr.rs1] + instr.imm,
+        out.effect = InstrEffect::StoreMem{.addr = reg_file[instr.rs1] + instr.imm,
                                              .value = static_cast<uint8_t>(reg_file[instr.rs2] & 0xFF)};
         return out;
     }
     case SH: {
-        out.effect = instr_effect::store_mem{.addr = reg_file[instr.rs1] + instr.imm,
+        out.effect = InstrEffect::StoreMem{.addr = reg_file[instr.rs1] + instr.imm,
                                              .value = static_cast<uint16_t>(reg_file[instr.rs2] & 0xFFFF)};
         return out;
     }
     case SW: {
-        out.effect = instr_effect::store_mem{.addr = reg_file[instr.rs1] + instr.imm,
+        out.effect = InstrEffect::StoreMem{.addr = reg_file[instr.rs1] + instr.imm,
                                              .value = static_cast<uint32_t>(reg_file[instr.rs2] & MASK_32)};
         return out;
     }
     case ADDI: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = reg_file[instr.rs1] + instr.imm};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = reg_file[instr.rs1] + instr.imm};
         return out;
     }
     case SLTI: {
         out.effect =
-            instr_effect::update_rd{.rd = instr.rd, .value = static_cast<int64_t>(reg_file[instr.rs1]) < instr.imm};
+            InstrEffect::UpdateRd{.rd = instr.rd, .value = static_cast<int64_t>(reg_file[instr.rs1]) < instr.imm};
         return out;
     }
     case SLTIU: {
         out.effect =
-            instr_effect::update_rd{.rd = instr.rd, .value = reg_file[instr.rs1] < static_cast<uint64_t>(instr.imm)};
+            InstrEffect::UpdateRd{.rd = instr.rd, .value = reg_file[instr.rs1] < static_cast<uint64_t>(instr.imm)};
         return out;
     }
     case XORI: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = reg_file[instr.rs1] ^ instr.imm};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = reg_file[instr.rs1] ^ instr.imm};
         return out;
     }
     case ORI: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = reg_file[instr.rs1] | instr.imm};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = reg_file[instr.rs1] | instr.imm};
         return out;
     }
     case ANDI: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = reg_file[instr.rs1] & instr.imm};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = reg_file[instr.rs1] & instr.imm};
         return out;
     }
     case SLLI: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = reg_file[instr.rs1] << shift_amt_imm};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = reg_file[instr.rs1] << shift_amt_imm};
         return out;
     }
     case SRLI: {
         out.effect =
-            instr_effect::update_rd{.rd = instr.rd, .value = logical_shift_right(reg_file[instr.rs1], shift_amt_imm)};
+            InstrEffect::UpdateRd{.rd = instr.rd, .value = logical_shift_right(reg_file[instr.rs1], shift_amt_imm)};
         return out;
     }
     case SRAI: {
         out.effect =
-            instr_effect::update_rd{.rd = instr.rd, .value = arith_shift_right(reg_file[instr.rs1], shift_amt_imm)};
+            InstrEffect::UpdateRd{.rd = instr.rd, .value = arith_shift_right(reg_file[instr.rs1], shift_amt_imm)};
         return out;
     }
     case ADD: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = reg_file[instr.rs1] + reg_file[instr.rs2]};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = reg_file[instr.rs1] + reg_file[instr.rs2]};
         return out;
     }
     case SUB: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = reg_file[instr.rs1] - reg_file[instr.rs2]};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = reg_file[instr.rs1] - reg_file[instr.rs2]};
         return out;
     }
     case SLL: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = reg_file[instr.rs1] << reg_file[instr.rs2]};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = reg_file[instr.rs1] << reg_file[instr.rs2]};
         return out;
     }
     case SLT: {
         auto value = static_cast<int64_t>(reg_file[instr.rs1]) < static_cast<int64_t>(reg_file[instr.rs2]);
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = value};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = value};
         return out;
     }
     case SLTU: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = reg_file[instr.rs1] < reg_file[instr.rs2]};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = reg_file[instr.rs1] < reg_file[instr.rs2]};
         return out;
     }
     case XOR: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = reg_file[instr.rs1] ^ reg_file[instr.rs2]};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = reg_file[instr.rs1] ^ reg_file[instr.rs2]};
         return out;
     }
     case SRL: {
         out.effect =
-            instr_effect::update_rd{.rd = instr.rd, .value = logical_shift_right(reg_file[instr.rs1], shift_amt_rs2)};
+            InstrEffect::UpdateRd{.rd = instr.rd, .value = logical_shift_right(reg_file[instr.rs1], shift_amt_rs2)};
         return out;
     }
     case SRA: {
         out.effect =
-            instr_effect::update_rd{.rd = instr.rd, .value = arith_shift_right(reg_file[instr.rs1], shift_amt_rs2)};
+            InstrEffect::UpdateRd{.rd = instr.rd, .value = arith_shift_right(reg_file[instr.rs1], shift_amt_rs2)};
         return out;
     }
     case OR: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = reg_file[instr.rs1] | reg_file[instr.rs2]};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = reg_file[instr.rs1] | reg_file[instr.rs2]};
         return out;
     }
     case AND: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = reg_file[instr.rs1] & reg_file[instr.rs2]};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = reg_file[instr.rs1] & reg_file[instr.rs2]};
         return out;
     }
     case FENCE:
@@ -206,52 +206,52 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
     case PAUSE:
         return out;
     case ECALL: {
-        exception_type code;
+        ExceptionType code;
 
         switch (priv) {
-            using enum privilege_level;
+            using enum PrivilegeLevel;
         case M:
-            code = exception_type::ECALL_M;
+            code = ExceptionType::ECALL_M;
             break;
         case S:
-            code = exception_type::ECALL_S;
+            code = ExceptionType::ECALL_S;
             break;
         case U:
-            code = exception_type::ECALL_U;
+            code = ExceptionType::ECALL_U;
             break;
         }
 
-        out.effect = instr_effect::raise_trap{.cause = code, .tval = 0};
+        out.effect = InstrEffect::RaiseTrap{.cause = code, .tval = 0};
 
         return out;
     }
     case EBREAK: {
-        out.effect = instr_effect::raise_trap{.cause = exception_type::BREAKPOINT, .tval = 0};
+        out.effect = InstrEffect::RaiseTrap{.cause = ExceptionType::BREAKPOINT, .tval = 0};
         return out;
     }
     case LWU: {
-        out.effect = instr_effect::load_rd_from_mem<uint32_t>{
+        out.effect = InstrEffect::LoadRdFromMem<uint32_t>{
             .rd = instr.rd, .addr = reg_file[instr.rs1] + instr.imm, .sign_ext = false};
         return out;
     }
     case LD: {
-        out.effect = instr_effect::load_rd_from_mem<uint64_t>{
+        out.effect = InstrEffect::LoadRdFromMem<uint64_t>{
             .rd = instr.rd, .addr = reg_file[instr.rs1] + instr.imm, .sign_ext = true};
         return out;
     }
     case SD: {
-        out.effect = instr_effect::store_mem{.addr = reg_file[instr.rs1] + instr.imm, .value = reg_file[instr.rs2]};
+        out.effect = InstrEffect::StoreMem{.addr = reg_file[instr.rs1] + instr.imm, .value = reg_file[instr.rs2]};
         return out;
     }
     case ADDIW: {
         uint64_t val = sign_extend((reg_file[instr.rs1] & MASK_32) + (instr.imm & MASK_32), 32);
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
         return out;
     }
     case SLLIW: {
         uint64_t val = sign_extend((reg_file[instr.rs1] << shift_amt_imm_32) & MASK_32, 32);
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
@@ -259,7 +259,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
         uint64_t val = logical_shift_right(reg_file[instr.rs1] & MASK_32, shift_amt_imm_32);
         val = sign_extend(val, 32);
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
@@ -267,34 +267,34 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
         uint64_t val = sign_extend(reg_file[instr.rs1] & MASK_32, 32);
         val = arith_shift_right(val, shift_amt_imm_32);
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
     case ADDW: {
         uint64_t val = sign_extend((reg_file[instr.rs1] & MASK_32) + (reg_file[instr.rs2] & MASK_32), 32);
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
     case SUBW: {
         uint64_t val = sign_extend((reg_file[instr.rs1] & MASK_32) - (reg_file[instr.rs2] & MASK_32), 32);
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
     case SLLW: {
         uint64_t val = sign_extend((reg_file[instr.rs1] << shift_amt_rs2_32) & MASK_32, 32);
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
         return out;
     }
     case SRLW: {
         uint64_t val = logical_shift_right(reg_file[instr.rs1] & MASK_32, shift_amt_rs2_32);
         val = sign_extend(val, 32);
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
@@ -302,11 +302,11 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
         uint64_t val = sign_extend(reg_file[instr.rs1] & MASK_32, 32);
         val = arith_shift_right(val, shift_amt_rs2_32);
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
         return out;
     }
     case MUL: {
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = reg_file[instr.rs1] * reg_file[instr.rs2]};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = reg_file[instr.rs1] * reg_file[instr.rs2]};
         return out;
     }
     case MULH: {
@@ -314,7 +314,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
         auto op2 = static_cast<__int128_t>(static_cast<int64_t>(reg_file[instr.rs2]));
         uint64_t val = op1 * op2 >> 64;
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
@@ -323,7 +323,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
         auto op2 = static_cast<__uint128_t>(reg_file[instr.rs2]);
         uint64_t val = static_cast<__int128_t>(op1 * op2) >> 64;
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
@@ -332,7 +332,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
         auto op2 = static_cast<__uint128_t>(reg_file[instr.rs2]);
         uint64_t val = op1 * op2 >> 64;
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
@@ -350,7 +350,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
             val = static_cast<int64_t>(reg_file[instr.rs1]) / static_cast<int64_t>(reg_file[instr.rs2]);
         }
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
@@ -363,7 +363,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
             val = reg_file[instr.rs1] / reg_file[instr.rs2];
         }
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
@@ -381,7 +381,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
             val = static_cast<int64_t>(reg_file[instr.rs1]) % static_cast<int64_t>(reg_file[instr.rs2]);
         }
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
@@ -394,14 +394,14 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
             val = reg_file[instr.rs1] % reg_file[instr.rs2];
         }
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
     case MULW: {
         uint64_t val = sign_extend((reg_file[instr.rs1] & MASK_32) * (reg_file[instr.rs2] & MASK_32), 32);
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
@@ -420,7 +420,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
             val = sign_extend(static_cast<uint64_t>(op1 / op2) & MASK_32, 32);
         }
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
@@ -436,7 +436,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
             val = sign_extend(op1 / op2, 32);
         }
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
@@ -455,7 +455,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
             val = sign_extend(op1 % op2, 32);
         }
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
@@ -471,18 +471,18 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
             val = sign_extend(op1 % op2, 32);
         }
 
-        out.effect = instr_effect::update_rd{.rd = instr.rd, .value = val};
+        out.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = val};
 
         return out;
     }
     case LR_W: {
         out.effect =
-            instr_effect::load_reserved<uint32_t>{.rd = instr.rd, .addr = reg_file[instr.rs1], .sign_ext = true};
+            InstrEffect::LoadReserved<uint32_t>{.rd = instr.rd, .addr = reg_file[instr.rs1], .sign_ext = true};
 
         return out;
     }
     case SC_W: {
-        out.effect = instr_effect::store_conditional{
+        out.effect = InstrEffect::StoreConditional{
             .rd = instr.rd, .addr = reg_file[instr.rs1], .value = static_cast<uint32_t>(reg_file[instr.rs2] & MASK_32)};
 
         return out;
@@ -496,7 +496,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
     case AMOMAX_W:
     case AMOMINU_W:
     case AMOMAXU_W: {
-        out.effect = instr_effect::amo_rmw{.rd = instr.rd,
+        out.effect = InstrEffect::AmoRmw{.rd = instr.rd,
                                            .type = to_amo_type(instr.op_type),
                                            .addr = reg_file[instr.rs1],
                                            .value = static_cast<uint32_t>(reg_file[instr.rs2]),
@@ -506,12 +506,12 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
     }
     case LR_D: {
         out.effect =
-            instr_effect::load_reserved<uint64_t>{.rd = instr.rd, .addr = reg_file[instr.rs1], .sign_ext = false};
+            InstrEffect::LoadReserved<uint64_t>{.rd = instr.rd, .addr = reg_file[instr.rs1], .sign_ext = false};
 
         return out;
     }
     case SC_D: {
-        out.effect = instr_effect::store_conditional{
+        out.effect = InstrEffect::StoreConditional{
             .rd = instr.rd,
             .addr = reg_file[instr.rs1],
             .value = reg_file[instr.rs2],
@@ -528,7 +528,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
     case AMOMAX_D:
     case AMOMINU_D:
     case AMOMAXU_D: {
-        out.effect = instr_effect::amo_rmw{.rd = instr.rd,
+        out.effect = InstrEffect::AmoRmw{.rd = instr.rd,
                                            .type = to_amo_type(instr.op_type),
                                            .addr = reg_file[instr.rs1],
                                            .value = reg_file[instr.rs2],
@@ -537,7 +537,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
         return out;
     }
     case CSRRW: {
-        out.effect = instr_effect::csr_rmw{.rd = instr.rd,
+        out.effect = InstrEffect::CsrRmw{.rd = instr.rd,
                                            .type = to_csr_op_type(instr.op_type),
                                            .addr = static_cast<uint16_t>(instr.imm),
                                            .value = reg_file[instr.rs1],
@@ -547,7 +547,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
     }
     case CSRRS:
     case CSRRC: {
-        out.effect = instr_effect::csr_rmw{.rd = instr.rd,
+        out.effect = InstrEffect::CsrRmw{.rd = instr.rd,
                                            .type = to_csr_op_type(instr.op_type),
                                            .addr = static_cast<uint16_t>(instr.imm),
                                            .value = reg_file[instr.rs1],
@@ -556,7 +556,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
         return out;
     }
     case CSRRWI: {
-        out.effect = instr_effect::csr_rmw{.rd = instr.rd,
+        out.effect = InstrEffect::CsrRmw{.rd = instr.rd,
                                            .type = to_csr_op_type(instr.op_type),
                                            .addr = static_cast<uint16_t>(instr.imm),
                                            .value = instr.rs1,
@@ -566,7 +566,7 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
     }
     case CSRRSI:
     case CSRRCI: {
-        out.effect = instr_effect::csr_rmw{.rd = instr.rd,
+        out.effect = InstrEffect::CsrRmw{.rd = instr.rd,
                                            .type = to_csr_op_type(instr.op_type),
                                            .addr = static_cast<uint16_t>(instr.imm),
                                            .value = instr.rs1,
@@ -575,26 +575,26 @@ instr_effect riscv_emu::execute(const instr_info instr, const uint64_t reg_file[
         return out;
     }
     case MRET: {
-        if (priv != privilege_level::M) {
-            out.effect = instr_effect::raise_trap{.cause = exception_type::ILLEGAL_INSTRUCTION, .tval = 0};
+        if (priv != PrivilegeLevel::M) {
+            out.effect = InstrEffect::RaiseTrap{.cause = ExceptionType::ILLEGAL_INSTRUCTION, .tval = 0};
         }
 
-        out.effect = instr_effect::trap_return{.return_priv = privilege_level::M};
+        out.effect = InstrEffect::TrapReturn{.return_priv = PrivilegeLevel::M};
         return out;
     }
     case SRET: {
-        if (priv < privilege_level::S) {
-            out.effect = instr_effect::raise_trap{.cause = exception_type::ILLEGAL_INSTRUCTION, .tval = 0};
+        if (priv < PrivilegeLevel::S) {
+            out.effect = InstrEffect::RaiseTrap{.cause = ExceptionType::ILLEGAL_INSTRUCTION, .tval = 0};
         }
-        out.effect = instr_effect::trap_return{.return_priv = privilege_level::S};
+        out.effect = InstrEffect::TrapReturn{.return_priv = PrivilegeLevel::S};
         return out;
     }
     case WFI: {
-        out.effect = instr_effect::handle_wfi{};
+        out.effect = InstrEffect::HandleWfi{};
         return out;
     }
     case INVALID: {
-        out.effect = instr_effect::raise_trap{.cause = exception_type::ILLEGAL_INSTRUCTION, .tval = 0};
+        out.effect = InstrEffect::RaiseTrap{.cause = ExceptionType::ILLEGAL_INSTRUCTION, .tval = 0};
         return out;
     }
     }

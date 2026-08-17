@@ -11,23 +11,23 @@
 #include "defs.h"
 
 namespace riscv_emu {
-class csr_file
+class CsrFile
 {
   public:
-    explicit csr_file(const uint64_t hart_id) : mhartid(hart_id) {}
+    explicit CsrFile(const uint64_t hart_id) : mhartid(hart_id) {}
 
     [[nodiscard]]
-    std::expected<uint64_t, trap_cause> read(uint16_t addr, privilege_level priv) const;
+    std::expected<uint64_t, TrapCause> read(uint16_t addr, PrivilegeLevel priv) const;
 
-    std::optional<trap_cause> write(uint16_t addr, uint64_t value, privilege_level priv);
+    std::optional<TrapCause> write(uint16_t addr, uint64_t value, PrivilegeLevel priv);
 
-    uint64_t enter_trap_m(trap_cause cause, uint64_t tval, uint64_t pc, privilege_level old_priv);
+    uint64_t enter_trap_m(TrapCause cause, uint64_t tval, uint64_t pc, PrivilegeLevel old_priv);
 
-    using trap_ret_info = std::pair<uint64_t, privilege_level>;
+    using trap_ret_info = std::pair<uint64_t, PrivilegeLevel>;
     trap_ret_info return_trap_m();
 
     [[nodiscard]]
-    bool is_wfi_valid(privilege_level priv) const;
+    bool is_wfi_valid(PrivilegeLevel priv) const;
 
     void increment_cycle_count();
     void increment_retired_instructions();
@@ -38,19 +38,19 @@ class csr_file
     static constexpr uint64_t MIDELEG_WRITE_MASK = 0x222; // S-mode interrupts (1,5,9); M-interrupts excluded
     static constexpr uint64_t MTVEC_WRITE_MASK = ~0x2; // everything except bit 1 should be writable
 
-    static constexpr uint64_t MIE_WRITE_MASK = 1 << interrupt_type::MACHINE_SOFTWARE |
-                                               1 << interrupt_type::MACHINE_TIMER |
-                                               1 << interrupt_type::MACHINE_EXTERNAL |
-                                               1 << interrupt_type::SUPERVISOR_SOFTWARE |
-                                               1 << interrupt_type::SUPERVISOR_TIMER |
-                                               1 << interrupt_type::SUPERVISOR_EXTERNAL;
+    static constexpr uint64_t MIE_WRITE_MASK = 1 << InterruptType::MACHINE_SOFTWARE |
+                                               1 << InterruptType::MACHINE_TIMER |
+                                               1 << InterruptType::MACHINE_EXTERNAL |
+                                               1 << InterruptType::SUPERVISOR_SOFTWARE |
+                                               1 << InterruptType::SUPERVISOR_TIMER |
+                                               1 << InterruptType::SUPERVISOR_EXTERNAL;
     // M-Mode and S-Mode interrupts
 
     static constexpr uint64_t MIP_WRITE_MASK =
-        1 << interrupt_type::MACHINE_SOFTWARE | 1 << interrupt_type::SUPERVISOR_SOFTWARE;
+        1 << InterruptType::MACHINE_SOFTWARE | 1 << InterruptType::SUPERVISOR_SOFTWARE;
     // Software interrupts should be writable
 
-    class mstatus_value
+    class MStatusValue
     {
         static constexpr int MIE = 3;
         static constexpr int MPIE = 7;
@@ -143,12 +143,12 @@ class csr_file
         uint64_t raw = RESET;
     };
 
-    static bool is_correct_privilege(uint16_t addr, privilege_level access_priv);
+    static bool is_correct_privilege(uint16_t addr, PrivilegeLevel access_priv);
     static bool is_writeable_addr(uint16_t addr);
     static bool is_hpm_addr(uint16_t addr);
 
     uint64_t mhartid;
-    mstatus_value mstatus;
+    MStatusValue mstatus;
     uint64_t mtvec = 0;
     uint64_t medeleg = 0;
     uint64_t mideleg = 0;

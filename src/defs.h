@@ -15,7 +15,7 @@ constexpr uint64_t ADDR_WIDTH = 64; // 64-bit system
 constexpr uint64_t MEM_SIZE = 128 * 1024 * 1024; // 128 MiB RAM
 constexpr uint64_t REG_COUNT = 32;
 
-enum class opcode
+enum class Opcode
 {
     LUI = 0b0110111,
     AUIPC = 0b0010111,
@@ -33,7 +33,7 @@ enum class opcode
     AMO = 0b0101111
 };
 
-enum class instr_type
+enum class InstrType
 {
     // RV32i instructions
     INVALID,
@@ -156,10 +156,10 @@ enum class instr_type
     WFI
 };
 
-struct instr_info
+struct InstrInfo
 {
     int64_t imm = 0;
-    instr_type op_type = instr_type::INVALID;
+    InstrType op_type = InstrType::INVALID;
     uint8_t rd = 0;
     uint8_t rs1 = 0;
     uint8_t rs2 = 0;
@@ -168,7 +168,7 @@ struct instr_info
 //--------------------------------------------
 // Atomic Memory Ops
 //--------------------------------------------
-enum class amo_type
+enum class AmoType
 {
     SWAP,
     ADD,
@@ -181,46 +181,46 @@ enum class amo_type
     MAXU
 };
 
-inline amo_type to_amo_type(const instr_type instr)
+inline AmoType to_amo_type(const InstrType instr)
 {
     switch (instr) {
-        using enum instr_type;
+        using enum InstrType;
 
     case AMOSWAP_W:
     case AMOSWAP_D:
-        return amo_type::SWAP;
+        return AmoType::SWAP;
 
     case AMOADD_W:
     case AMOADD_D:
-        return amo_type::ADD;
+        return AmoType::ADD;
 
     case AMOXOR_W:
     case AMOXOR_D:
-        return amo_type::XOR;
+        return AmoType::XOR;
 
     case AMOAND_W:
     case AMOAND_D:
-        return amo_type::AND;
+        return AmoType::AND;
 
     case AMOOR_W:
     case AMOOR_D:
-        return amo_type::OR;
+        return AmoType::OR;
 
     case AMOMIN_W:
     case AMOMIN_D:
-        return amo_type::MIN;
+        return AmoType::MIN;
 
     case AMOMAX_W:
     case AMOMAX_D:
-        return amo_type::MAX;
+        return AmoType::MAX;
 
     case AMOMINU_W:
     case AMOMINU_D:
-        return amo_type::MINU;
+        return AmoType::MINU;
 
     case AMOMAXU_W:
     case AMOMAXU_D:
-        return amo_type::MAXU;
+        return AmoType::MAXU;
 
     default:
         std::cerr << "to_amo_type: not an AMO instruction\n";
@@ -228,26 +228,26 @@ inline amo_type to_amo_type(const instr_type instr)
     }
 }
 
-enum class csr_op_type
+enum class CsrOpType
 {
     RW,
     RS,
     RC
 };
 
-inline csr_op_type to_csr_op_type(const instr_type instr)
+inline CsrOpType to_csr_op_type(const InstrType instr)
 {
     switch (instr) {
-        using enum instr_type;
+        using enum InstrType;
     case CSRRW:
     case CSRRWI:
-        return csr_op_type::RW;
+        return CsrOpType::RW;
     case CSRRS:
     case CSRRSI:
-        return csr_op_type::RS;
+        return CsrOpType::RS;
     case CSRRC:
     case CSRRCI:
-        return csr_op_type::RC;
+        return CsrOpType::RC;
     default:
         std::cerr << "to_csr_op_type: not an CSRRW instruction\n";
         std::abort();
@@ -257,7 +257,7 @@ inline csr_op_type to_csr_op_type(const instr_type instr)
 //--------------------------------------------
 // Exceptions and Traps
 //--------------------------------------------
-enum class exception_type : uint64_t
+enum class ExceptionType : uint64_t
 {
     INSTR_ADDR_MISALIGNED = 0,
     INSTR_ACCESS_FAULT = 1,
@@ -265,8 +265,8 @@ enum class exception_type : uint64_t
     BREAKPOINT = 3,
     LOAD_ADDR_MISALIGNED = 4,
     LOAD_ACCESS_FAULT = 5,
-    STORE_ADDR_MISALIGNED = 6,
-    STORE_ACCESS_FAULT = 7,
+    STORE_AMO_ADDR_MISALIGNED = 6,
+    STORE_AMO_ACCESS_FAULT = 7,
     ECALL_U = 8,
     ECALL_S = 9,
     ECALL_M = 11,
@@ -275,7 +275,7 @@ enum class exception_type : uint64_t
     STORE_PAGE_FAULT = 15
 };
 
-enum class interrupt_type : uint64_t
+enum class InterruptType : uint64_t
 {
     MACHINE_SOFTWARE = 3,
     MACHINE_TIMER = 7,
@@ -286,25 +286,25 @@ enum class interrupt_type : uint64_t
     SUPERVISOR_EXTERNAL = 9
 };
 
-constexpr uint64_t operator<<(const uint64_t lhs, const interrupt_type rhs)
+constexpr uint64_t operator<<(const uint64_t lhs, const InterruptType rhs)
 {
     return lhs << std::to_underlying(rhs);
 }
 
-struct trap_cause
+struct TrapCause
 {
     uint64_t code;
     bool is_interrupt;
 
     // ReSharper disable once CppNonExplicitConvertingConstructor
-    trap_cause(const exception_type e)
+    TrapCause(const ExceptionType e)
     {
         code = std::to_underlying(e);
         is_interrupt = false;
     }
 
     // ReSharper disable once CppNonExplicitConvertingConstructor
-    trap_cause(const interrupt_type i)
+    TrapCause(const InterruptType i)
     {
         code = std::to_underlying(i);
         is_interrupt = true;
@@ -319,13 +319,25 @@ template <typename T>
 concept UintFamily =
     std::same_as<T, uint8_t> || std::same_as<T, uint16_t> || std::same_as<T, uint32_t> || std::same_as<T, uint64_t>;
 
-class device
+class BusDevice
 {
   public:
-    virtual ~device() = default;
+    explicit BusDevice(const uint64_t size) : size(size) {}
+    virtual ~BusDevice() = default;
+
     [[nodiscard]]
     virtual uint64_t read(uint64_t offset, uint8_t size) const = 0;
+
     virtual void write(uint64_t offset, uint64_t data, uint8_t size) = 0;
+
+    [[nodiscard]]
+    uint64_t max_offset() const
+    {
+        return size - 1;
+    }
+
+  protected:
+    const uint64_t size;
 };
 } // namespace mem_io
 
@@ -333,14 +345,14 @@ class device
 // Instruction Effects
 //--------------------------------------------
 
-enum class privilege_level
+enum class PrivilegeLevel
 {
     U = 0,
     S = 1,
     M = 3
 };
 
-enum class csr_register : uint16_t
+enum class CsrRegister : uint16_t
 {
     // Machine info registers
     MVENDORID = 0xF11,
@@ -386,13 +398,13 @@ enum class csr_register : uint16_t
     MCOUNTINHIBIT = 0x320,
 };
 
-struct instr_effect
+struct InstrEffect
 {
-    struct no_effect
+    struct NoEffect
     {
     };
 
-    struct update_rd
+    struct UpdateRd
     {
         uint8_t rd;
         uint64_t value;
@@ -400,7 +412,7 @@ struct instr_effect
 
     // ReSharper disable once CppTemplateParameterNeverUsed
     template <mem_io::UintFamily T>
-    struct load_rd_from_mem
+    struct LoadRdFromMem
     {
         uint8_t rd;
         uint64_t addr;
@@ -408,7 +420,7 @@ struct instr_effect
     };
 
     template <mem_io::UintFamily T>
-    struct store_mem
+    struct StoreMem
     {
         uint64_t addr;
         T value;
@@ -416,7 +428,7 @@ struct instr_effect
 
     // ReSharper disable once CppTemplateParameterNeverUsed
     template <mem_io::UintFamily T>
-    struct load_reserved
+    struct LoadReserved
     {
         uint8_t rd;
         uint64_t addr;
@@ -424,7 +436,7 @@ struct instr_effect
     };
 
     template <mem_io::UintFamily T>
-    struct store_conditional
+    struct StoreConditional
     {
         uint8_t rd;
         uint64_t addr;
@@ -432,46 +444,45 @@ struct instr_effect
     };
 
     template <mem_io::UintFamily T>
-    struct amo_rmw
+    struct AmoRmw
     {
         uint8_t rd;
-        amo_type type;
+        AmoType type;
         uint64_t addr;
         T value;
         bool sign_ext;
     };
 
-    struct csr_rmw
+    struct CsrRmw
     {
         uint8_t rd;
-        csr_op_type type;
+        CsrOpType type;
         uint16_t addr;
         uint64_t value;
         bool skip_read;
         bool skip_write;
     };
 
-    struct raise_trap
+    struct RaiseTrap
     {
-        trap_cause cause;
+        TrapCause cause;
         uint64_t tval;
     };
 
-    struct trap_return
+    struct TrapReturn
     {
-        privilege_level return_priv;
+        PrivilegeLevel return_priv;
     };
 
-    struct handle_wfi
+    struct HandleWfi
     {
     };
 
-    using effect_type =
-        std::variant<no_effect, update_rd, load_rd_from_mem<uint8_t>, load_rd_from_mem<uint16_t>,
-                     load_rd_from_mem<uint32_t>, load_rd_from_mem<uint64_t>, store_mem<uint8_t>, store_mem<uint16_t>,
-                     store_mem<uint32_t>, store_mem<uint64_t>, load_reserved<uint32_t>, load_reserved<uint64_t>,
-                     store_conditional<uint32_t>, store_conditional<uint64_t>, amo_rmw<uint32_t>, amo_rmw<uint64_t>,
-                     csr_rmw, raise_trap, trap_return, handle_wfi>;
+    using effect_type = std::variant<NoEffect, UpdateRd, LoadRdFromMem<uint8_t>, LoadRdFromMem<uint16_t>,
+                                     LoadRdFromMem<uint32_t>, LoadRdFromMem<uint64_t>, StoreMem<uint8_t>,
+                                     StoreMem<uint16_t>, StoreMem<uint32_t>, StoreMem<uint64_t>, LoadReserved<uint32_t>,
+                                     LoadReserved<uint64_t>, StoreConditional<uint32_t>, StoreConditional<uint64_t>,
+                                     AmoRmw<uint32_t>, AmoRmw<uint64_t>, CsrRmw, RaiseTrap, TrapReturn, HandleWfi>;
 
     effect_type effect;
     uint64_t new_pc;
@@ -481,14 +492,14 @@ struct instr_effect
 // Helper Funcs
 //--------------------------------------------
 
-inline bool is_shift_imm_instr(const instr_type itype)
+inline bool is_shift_imm_instr(const InstrType itype)
 {
-    return itype == instr_type::SLLI ||
-           itype == instr_type::SRLI ||
-           itype == instr_type::SRAI ||
-           itype == instr_type::SLLIW ||
-           itype == instr_type::SRLIW ||
-           itype == instr_type::SRAIW;
+    return itype == InstrType::SLLI ||
+           itype == InstrType::SRLI ||
+           itype == InstrType::SRAI ||
+           itype == InstrType::SLLIW ||
+           itype == InstrType::SRLIW ||
+           itype == InstrType::SRAIW;
 }
 
 // Param "bits" is the true size of "value". Anything below it will not be affected.

@@ -9,9 +9,11 @@
 #include "defs.h"
 
 namespace riscv_emu::mem_io {
-class ram : device
+class Ram : public BusDevice
 {
   public:
+    explicit Ram(uint64_t size);
+
     void load(const uint8_t* data, std::size_t size) const;
 
     [[nodiscard]]
@@ -21,7 +23,7 @@ class ram : device
     void dump(std::ostream& os) const;
 
   private:
-    std::unique_ptr<uint8_t[]> memory = std::make_unique<uint8_t[]>(MEM_SIZE);
+    std::unique_ptr<uint8_t[]> memory;
 };
 } // namespace riscv_emu::mem_io
 

@@ -5,24 +5,34 @@
 #ifndef RISCV_EMU_MACHINE_H
 #define RISCV_EMU_MACHINE_H
 
+#include <cstdint>
+#include <memory>
 #include <vector>
-#include "bus.h"
-#include "hart.h"
-#include "ram.h"
 
 namespace riscv_emu {
-class machine
+namespace mem_io {
+class Bus;
+class Ram;
+} // namespace mem_io
+class Hart;
+
+class Machine
 {
   public:
-    machine();
+    Machine();
+    ~Machine();
     void run();
     void load(const uint8_t* data, std::size_t size) const;
     void dump(std::ostream& os) const;
 
+    Machine(Machine&&) = delete;
+    Machine& operator=(Machine&&) = delete;
+
   private:
-    mem_io::ram m_ram;
-    mem_io::bus m_bus;
-    std::vector<hart> m_harts;
+    std::unique_ptr<mem_io::Ram> dram;
+
+    std::unique_ptr<mem_io::Bus> bus;
+    std::unique_ptr<std::vector<Hart>> harts;
 };
 } // namespace riscv_emu
 

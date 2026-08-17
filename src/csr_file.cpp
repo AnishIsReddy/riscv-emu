@@ -7,10 +7,10 @@
 #include "csr_file.h"
 
 namespace riscv_emu {
-std::expected<uint64_t, trap_cause> csr_file::read(const uint16_t addr, const privilege_level priv) const
+std::expected<uint64_t, TrapCause> CsrFile::read(const uint16_t addr, const PrivilegeLevel priv) const
 {
     if (!is_correct_privilege(addr, priv)) {
-        return std::unexpected(exception_type::ILLEGAL_INSTRUCTION);
+        return std::unexpected(ExceptionType::ILLEGAL_INSTRUCTION);
     }
 
     // handle HPM addrs with hardcoded 0
@@ -18,8 +18,8 @@ std::expected<uint64_t, trap_cause> csr_file::read(const uint16_t addr, const pr
         return 0;
     }
 
-    switch (static_cast<csr_register>(addr)) {
-        using enum csr_register;
+    switch (static_cast<CsrRegister>(addr)) {
+        using enum CsrRegister;
 
     case MISA:
         return 0x8000000000001101; // 0x8000000000141101 when S and U modes added
@@ -65,25 +65,25 @@ std::expected<uint64_t, trap_cause> csr_file::read(const uint16_t addr, const pr
     }
 
     // invalid register addr was passed
-    return std::unexpected(exception_type::ILLEGAL_INSTRUCTION);
+    return std::unexpected(ExceptionType::ILLEGAL_INSTRUCTION);
 }
 
-std::optional<trap_cause> csr_file::write(const uint16_t addr, const uint64_t value, const privilege_level priv)
+std::optional<TrapCause> CsrFile::write(const uint16_t addr, const uint64_t value, const PrivilegeLevel priv)
 {
     if (!is_writeable_addr(addr)) {
-        return exception_type::ILLEGAL_INSTRUCTION;
+        return ExceptionType::ILLEGAL_INSTRUCTION;
     }
 
     if (!is_correct_privilege(addr, priv)) {
-        return exception_type::ILLEGAL_INSTRUCTION;
+        return ExceptionType::ILLEGAL_INSTRUCTION;
     }
 
     if (is_hpm_addr(addr)) {
         return std::nullopt;
     }
 
-    switch (static_cast<csr_register>(addr)) {
-        using enum csr_register;
+    switch (static_cast<CsrRegister>(addr)) {
+        using enum CsrRegister;
 
     case MISA:
         return std::nullopt;
@@ -146,21 +146,21 @@ std::optional<trap_cause> csr_file::write(const uint16_t addr, const uint64_t va
     return std::nullopt;
 }
 
-inline bool csr_file::is_correct_privilege(const uint16_t addr, const privilege_level access_priv)
+inline bool CsrFile::is_correct_privilege(const uint16_t addr, const PrivilegeLevel access_priv)
 {
     // bits [9:8] of addr represent privilege
-    const auto reg_priv = static_cast<privilege_level>(addr >> 8 & 0b11);
+    const auto reg_priv = static_cast<PrivilegeLevel>(addr >> 8 & 0b11);
     return access_priv >= reg_priv;
 }
 
-inline bool csr_file::is_writeable_addr(const uint16_t addr)
+inline bool CsrFile::is_writeable_addr(const uint16_t addr)
 {
     // bits [11:10] represent writable (0b11 is read-only)
     return ((addr >> 10) & 0b11) != 0b11;
 }
 
-uint64_t csr_file::enter_trap_m(const trap_cause cause, const uint64_t tval, const uint64_t pc,
-                                privilege_level old_priv)
+uint64_t CsrFile::enter_trap_m(const TrapCause cause, const uint64_t tval, const uint64_t pc,
+                                PrivilegeLevel old_priv)
 {
     mstatus.set_mpp(static_cast<uint8_t>(old_priv));
     mstatus.set_mpie(mstatus.mie());
@@ -184,23 +184,23 @@ uint64_t csr_file::enter_trap_m(const trap_cause cause, const uint64_t tval, con
     return new_pc;
 }
 
-csr_file::trap_ret_info csr_file::return_trap_m()
+CsrFile::trap_ret_info CsrFile::return_trap_m()
 {
     uint64_t pc = mepc;
-    auto new_priv = static_cast<privilege_level>(mstatus.mpp());
+    auto new_priv = static_cast<PrivilegeLevel>(mstatus.mpp());
 
     mstatus.set_mie(mstatus.mpie());
     mstatus.set_mpie(true);
-    mstatus.set_mpp(std::to_underlying(privilege_level::M)); // Change this to U after user space impl
+    mstatus.set_mpp(std::to_underlying(PrivilegeLevel::M)); // Change this to U after user space impl
 
-    if (new_priv != privilege_level::M) {
+    if (new_priv != PrivilegeLevel::M) {
         mstatus.set_mprv(false);
     }
 
     return std::make_pair(pc, new_priv);
 }
 
-bool csr_file::is_hpm_addr(const uint16_t addr)
+bool CsrFile::is_hpm_addr(const uint16_t addr)
 {
     constexpr uint64_t ctr_base = 0xB03;
     constexpr uint64_t event_base = 0x323;
@@ -209,12 +209,12 @@ bool csr_file::is_hpm_addr(const uint16_t addr)
     return (addr >= ctr_base && addr < ctr_base + size) || (addr >= event_base && addr < event_base + size);
 }
 
-void csr_file::increment_cycle_count()
+void CsrFile::increment_cycle_count()
 {
     mcycle++;
 }
 
-void csr_file::increment_retired_instructions()
+void CsrFile::increment_retired_instructions()
 {
     if (!wrote_minstret) {
         minstret++;
@@ -223,13 +223,13 @@ void csr_file::increment_retired_instructions()
     wrote_minstret = false;
 }
 
-bool csr_file::is_wfi_valid(const privilege_level priv) const
+bool CsrFile::is_wfi_valid(const PrivilegeLevel priv) const
 {
-    if (priv == privilege_level::M) {
+    if (priv == PrivilegeLevel::M) {
         return true;
     }
 
-    if (priv == privilege_level::S) {
+    if (priv == PrivilegeLevel::S) {
         return mstatus.tsr() == 0;
     }
 

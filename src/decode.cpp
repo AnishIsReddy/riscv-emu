@@ -10,9 +10,9 @@
 
 using namespace riscv_emu;
 
-static instr_type resolve_instr_type_OP(const uint8_t funct3, const uint8_t funct7)
+static InstrType resolve_instr_type_OP(const uint8_t funct3, const uint8_t funct7)
 {
-    using enum instr_type;
+    using enum InstrType;
     const uint16_t func = funct7 << 3 | funct3;
 
     switch (func) {
@@ -57,9 +57,9 @@ static instr_type resolve_instr_type_OP(const uint8_t funct3, const uint8_t func
     }
 }
 
-static instr_type resolve_instr_type_OP_32(const uint8_t funct3, const uint8_t funct7)
+static InstrType resolve_instr_type_OP_32(const uint8_t funct3, const uint8_t funct7)
 {
-    using enum instr_type;
+    using enum InstrType;
     const uint16_t funct = funct7 << 3 | funct3;
 
     switch (funct) {
@@ -88,9 +88,9 @@ static instr_type resolve_instr_type_OP_32(const uint8_t funct3, const uint8_t f
     }
 }
 
-static instr_type resolve_instr_type_AMO(const uint8_t funct3, const uint8_t funct7, const uint8_t rs2)
+static InstrType resolve_instr_type_AMO(const uint8_t funct3, const uint8_t funct7, const uint8_t rs2)
 {
-    using enum instr_type;
+    using enum InstrType;
     const uint8_t funct5 = funct7 >> 2;
 
     if (funct3 != 0b010 && funct3 != 0b011) {
@@ -161,9 +161,9 @@ static instr_type resolve_instr_type_AMO(const uint8_t funct3, const uint8_t fun
     return itype_w;
 }
 
-static instr_info decode_rtype(const uint32_t raw)
+static InstrInfo decode_rtype(const uint32_t raw)
 {
-    const auto op = static_cast<opcode>(raw & 0x7F);
+    const auto op = static_cast<Opcode>(raw & 0x7F);
     const uint8_t funct3 = raw >> 12 & 0x7;
     const uint8_t funct7 = raw >> 25 & 0x7F;
 
@@ -171,28 +171,28 @@ static instr_info decode_rtype(const uint32_t raw)
     const auto rs1 = static_cast<uint8_t>(raw >> 15 & 0x1F);
     const auto rs2 = static_cast<uint8_t>(raw >> 20 & 0x1F);
 
-    instr_type itype;
+    InstrType itype;
 
     switch (op) {
-    case opcode::OP:
+    case Opcode::OP:
         itype = resolve_instr_type_OP(funct3, funct7);
         break;
-    case opcode::OP_32:
+    case Opcode::OP_32:
         itype = resolve_instr_type_OP_32(funct3, funct7);
         break;
-    case opcode::AMO:
+    case Opcode::AMO:
         itype = resolve_instr_type_AMO(funct3, funct7, rs2);
         break;
     default:
-        itype = instr_type::INVALID;
+        itype = InstrType::INVALID;
     }
 
-    return instr_info{.op_type = itype, .rd = rd, .rs1 = rs1, .rs2 = rs2};
+    return InstrInfo{.op_type = itype, .rd = rd, .rs1 = rs1, .rs2 = rs2};
 }
 
-static instr_type resolve_instr_type_OP_IMM(const uint8_t funct3, const bool use_alt_instr)
+static InstrType resolve_instr_type_OP_IMM(const uint8_t funct3, const bool use_alt_instr)
 {
-    using enum instr_type;
+    using enum InstrType;
     switch (funct3) {
     case 0b000:
         return ADDI;
@@ -215,10 +215,10 @@ static instr_type resolve_instr_type_OP_IMM(const uint8_t funct3, const bool use
     }
 }
 
-static instr_type resolve_instr_type_OP_IMM_32(const uint8_t funct3, const bool use_alt_instr)
+static InstrType resolve_instr_type_OP_IMM_32(const uint8_t funct3, const bool use_alt_instr)
 {
     switch (funct3) {
-        using enum instr_type;
+        using enum InstrType;
     case 0b000:
         return ADDIW;
     case 0b001:
@@ -230,10 +230,10 @@ static instr_type resolve_instr_type_OP_IMM_32(const uint8_t funct3, const bool 
     }
 }
 
-static instr_type resolve_instr_type_LOAD(const uint8_t funct3)
+static InstrType resolve_instr_type_LOAD(const uint8_t funct3)
 {
     switch (funct3) {
-        using enum instr_type;
+        using enum InstrType;
     case 0b000:
         return LB;
     case 0b001:
@@ -253,9 +253,9 @@ static instr_type resolve_instr_type_LOAD(const uint8_t funct3)
     }
 }
 
-static instr_type resolve_instr_type_MISC_MEM(const uint8_t funct3)
+static InstrType resolve_instr_type_MISC_MEM(const uint8_t funct3)
 {
-    using enum instr_type;
+    using enum InstrType;
     switch (funct3) {
     case 0b000:
         return FENCE;
@@ -266,17 +266,17 @@ static instr_type resolve_instr_type_MISC_MEM(const uint8_t funct3)
     }
 }
 
-static instr_info decode_itype(const uint32_t raw)
+static InstrInfo decode_itype(const uint32_t raw)
 {
-    const auto op = static_cast<opcode>(raw & 0x7F);
+    const auto op = static_cast<Opcode>(raw & 0x7F);
     const uint8_t func3 = raw >> 12 & 0x7;
     const bool use_alt_instr = raw >> 30 & 0b1;
     const uint64_t raw_imm = raw >> 20 & 0xFFF;
 
-    instr_type itype;
+    InstrType itype;
 
     switch (op) {
-        using enum opcode;
+        using enum Opcode;
 
     case OP_IMM:
         itype = resolve_instr_type_OP_IMM(func3, use_alt_instr);
@@ -288,13 +288,13 @@ static instr_info decode_itype(const uint32_t raw)
         itype = resolve_instr_type_OP_IMM_32(func3, use_alt_instr);
         break;
     case JALR:
-        itype = instr_type::JALR;
+        itype = InstrType::JALR;
         break;
     case MISC_MEM:
         itype = resolve_instr_type_MISC_MEM(func3);
         break;
     default:
-        itype = instr_type::INVALID;
+        itype = InstrType::INVALID;
     }
 
     // calculate imm value
@@ -303,7 +303,7 @@ static instr_info decode_itype(const uint32_t raw)
         imm = sign_extend(raw_imm, 12);
     }
 
-    const auto out = instr_info{.imm = imm,
+    const auto out = InstrInfo{.imm = imm,
                                 .op_type = itype,
                                 .rd = static_cast<uint8_t>(raw >> 7 & 0x1F),
                                 .rs1 = static_cast<uint8_t>(raw >> 15 & 0x1F)};
@@ -311,12 +311,12 @@ static instr_info decode_itype(const uint32_t raw)
     return out;
 }
 
-static instr_type resolve_csr_instr(const uint8_t funct3)
+static InstrType resolve_csr_instr(const uint8_t funct3)
 {
     assert(funct3 != 0);
 
     switch (funct3) {
-        using enum instr_type;
+        using enum InstrType;
     case 0b001:
         return CSRRW;
     case 0b010:
@@ -334,7 +334,7 @@ static instr_type resolve_csr_instr(const uint8_t funct3)
     }
 }
 
-static instr_info decode_SYSTEM(const uint64_t raw)
+static InstrInfo decode_SYSTEM(const uint64_t raw)
 {
     const auto rd = static_cast<uint8_t>(raw >> 7 & 0x1F);
     const uint8_t funct3 = raw >> 12 & 0x7;
@@ -344,66 +344,66 @@ static instr_info decode_SYSTEM(const uint64_t raw)
 
     // csr func
     if (funct3 != 0) {
-        return instr_info{.imm = static_cast<int64_t>(imm), .op_type = resolve_csr_instr(funct3), .rd = rd, .rs1 = rs1};
+        return InstrInfo{.imm = static_cast<int64_t>(imm), .op_type = resolve_csr_instr(funct3), .rd = rd, .rs1 = rs1};
     }
 
     if (imm == 0) {
-        return instr_info{
-            .op_type = instr_type::ECALL,
+        return InstrInfo{
+            .op_type = InstrType::ECALL,
         };
     }
 
     if (imm == 1) {
-        return instr_info{
-            .op_type = instr_type::EBREAK,
+        return InstrInfo{
+            .op_type = InstrType::EBREAK,
         };
     }
 
     if (imm == 0x102) {
-        return instr_info{
-            .op_type = instr_type::SRET,
+        return InstrInfo{
+            .op_type = InstrType::SRET,
         };
     }
 
     if (imm == 0x302) {
-        return instr_info{
-            .op_type = instr_type::MRET,
+        return InstrInfo{
+            .op_type = InstrType::MRET,
         };
     }
 
     if (imm == 0x105) {
-        return instr_info{.op_type = instr_type::WFI};
+        return InstrInfo{.op_type = InstrType::WFI};
     }
 
-    return instr_info{.op_type = instr_type::INVALID};
+    return InstrInfo{.op_type = InstrType::INVALID};
 }
 
-static instr_info decode_stype(const uint32_t raw)
+static InstrInfo decode_stype(const uint32_t raw)
 {
     const uint8_t func3 = raw >> 12 & 0x7;
 
-    instr_type itype;
+    InstrType itype;
     switch (func3) {
     case 0b000:
-        itype = instr_type::SB;
+        itype = InstrType::SB;
         break;
     case 0b001:
-        itype = instr_type::SH;
+        itype = InstrType::SH;
         break;
     case 0b010:
-        itype = instr_type::SW;
+        itype = InstrType::SW;
         break;
     case 0b011:
-        itype = instr_type::SD;
+        itype = InstrType::SD;
         break;
     default:
-        return instr_info{.op_type = instr_type::INVALID};
+        return InstrInfo{.op_type = InstrType::INVALID};
     }
 
     int64_t imm = ((raw >> 25 & 0x7F) << 5) | (raw >> 7 & 0x1F);
     imm = sign_extend(imm, 12);
 
-    const auto out = instr_info{.imm = imm,
+    const auto out = InstrInfo{.imm = imm,
                                 .op_type = itype,
                                 .rs1 = static_cast<uint8_t>(raw >> 15 & 0x1F),
                                 .rs2 = static_cast<uint8_t>(raw >> 20 & 0x1F)};
@@ -411,32 +411,32 @@ static instr_info decode_stype(const uint32_t raw)
     return out;
 }
 
-static instr_info decode_btype(const uint32_t raw)
+static InstrInfo decode_btype(const uint32_t raw)
 {
     const uint8_t func3 = raw >> 12 & 0x7;
 
-    instr_type itype;
+    InstrType itype;
     switch (func3) {
     case 0b000:
-        itype = instr_type::BEQ;
+        itype = InstrType::BEQ;
         break;
     case 0b001:
-        itype = instr_type::BNE;
+        itype = InstrType::BNE;
         break;
     case 0b100:
-        itype = instr_type::BLT;
+        itype = InstrType::BLT;
         break;
     case 0b101:
-        itype = instr_type::BGE;
+        itype = InstrType::BGE;
         break;
     case 0b110:
-        itype = instr_type::BLTU;
+        itype = InstrType::BLTU;
         break;
     case 0b111:
-        itype = instr_type::BGEU;
+        itype = InstrType::BGEU;
         break;
     default:
-        return instr_info{.op_type = instr_type::INVALID};
+        return InstrInfo{.op_type = InstrType::INVALID};
     }
 
     int64_t imm =
@@ -445,7 +445,7 @@ static instr_info decode_btype(const uint32_t raw)
         imm |= ~0x1FFFl;
     }
 
-    const auto out = instr_info{.imm = imm,
+    const auto out = InstrInfo{.imm = imm,
                                 .op_type = itype,
                                 .rs1 = static_cast<uint8_t>(raw >> 15 & 0x1F),
                                 .rs2 = static_cast<uint8_t>(raw >> 20 & 0x1F)};
@@ -453,45 +453,45 @@ static instr_info decode_btype(const uint32_t raw)
     return out;
 }
 
-static instr_info decode_utype(const uint32_t raw)
+static InstrInfo decode_utype(const uint32_t raw)
 {
-    instr_type itype;
-    const auto op = static_cast<opcode>(raw & 0x7F);
+    InstrType itype;
+    const auto op = static_cast<Opcode>(raw & 0x7F);
 
-    if (op == opcode::LUI) {
-        itype = instr_type::LUI;
+    if (op == Opcode::LUI) {
+        itype = InstrType::LUI;
     }
-    else if (op == opcode::AUIPC) {
-        itype = instr_type::AUIPC;
+    else if (op == Opcode::AUIPC) {
+        itype = InstrType::AUIPC;
     }
     else {
-        return instr_info{.op_type = instr_type::INVALID};
+        return InstrInfo{.op_type = InstrType::INVALID};
     }
 
     const auto imm = sign_extend(raw & 0xFFFFF000, 32);
 
-    const auto out = instr_info{.imm = imm, .op_type = itype, .rd = static_cast<uint8_t>(raw >> 7 & 0x1F)};
+    const auto out = InstrInfo{.imm = imm, .op_type = itype, .rd = static_cast<uint8_t>(raw >> 7 & 0x1F)};
 
     return out;
 }
 
-static instr_info decode_jtype(const uint32_t raw)
+static InstrInfo decode_jtype(const uint32_t raw)
 {
     int64_t imm =
         ((raw >> 31) & 1) << 20 | ((raw >> 12) & 0xFF) << 12 | ((raw >> 20) & 1) << 11 | ((raw >> 21) & 0x3FF) << 1;
     imm = sign_extend(imm, 21);
 
-    const auto out = instr_info{.imm = imm, .op_type = instr_type::JAL, .rd = static_cast<uint8_t>(raw >> 7 & 0x1F)};
+    const auto out = InstrInfo{.imm = imm, .op_type = InstrType::JAL, .rd = static_cast<uint8_t>(raw >> 7 & 0x1F)};
 
     return out;
 }
 
-instr_info riscv_emu::decode(const uint32_t raw)
+InstrInfo riscv_emu::decode(const uint32_t raw)
 {
-    const auto op = static_cast<opcode>(raw & 0x7F);
+    const auto op = static_cast<Opcode>(raw & 0x7F);
 
     switch (op) {
-        using enum opcode;
+        using enum Opcode;
     case OP:
     case OP_32:
     case AMO:
@@ -514,6 +514,6 @@ instr_info riscv_emu::decode(const uint32_t raw)
     case JAL:
         return decode_jtype(raw);
     default:
-        return instr_info{.op_type = instr_type::INVALID};
+        return InstrInfo{.op_type = InstrType::INVALID};
     }
 }

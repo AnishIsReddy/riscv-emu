@@ -9,12 +9,17 @@
 
 using namespace riscv_emu::mem_io;
 
-void ram::load(const uint8_t* data, const std::size_t size) const
+Ram::Ram(const uint64_t size) : BusDevice(size)
+{
+    memory = std::make_unique<uint8_t[]>(size);
+}
+
+void Ram::load(const uint8_t* data, const std::size_t size) const
 {
     memcpy(memory.get(), data, size);
 }
 
-uint64_t ram::read(const uint64_t offset, const uint8_t size) const
+uint64_t Ram::read(const uint64_t offset, const uint8_t size) const
 {
     uint64_t out = 0;
     memcpy(&out, memory.get() + offset, size);
@@ -22,14 +27,14 @@ uint64_t ram::read(const uint64_t offset, const uint8_t size) const
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst [modifies member memory]
-void ram::write(const uint64_t offset, const uint64_t data, const uint8_t size)
+void Ram::write(const uint64_t offset, const uint64_t data, const uint8_t size)
 {
     memcpy(memory.get() + offset, &data, size);
 }
 
-void ram::dump(std::ostream& os) const
+void Ram::dump(std::ostream& os) const
 {
-    for (std::size_t i = 0; i < MEM_SIZE; i += 16) {
+    for (std::size_t i = 0; i < size; i += 16) {
         bool all_zero = true;
 
         for (std::size_t j = i; j < i + 16 && j < MEM_SIZE; j++) {

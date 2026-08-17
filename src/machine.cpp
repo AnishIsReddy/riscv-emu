@@ -4,38 +4,46 @@
 
 #include "machine.h"
 
+#include <iostream>
 #include "bus.h"
 #include "hart.h"
+#include "ram.h"
 
 using namespace riscv_emu;
 
-machine::machine() : m_bus(&m_ram)
+Machine::Machine()
 {
-    m_harts.emplace_back(&m_bus, 0);
+    dram = std::make_unique<mem_io::Ram>(MEM_SIZE);
+    mem_io::DeviceMap bus_map;
+    bus_map.add_mapping(0x00000000, *dram);
+    bus = std::make_unique<mem_io::Bus>(std::move(bus_map));
+    harts->emplace_back(bus.get(), 0);
 }
 
-void machine::load(const uint8_t* data, const std::size_t size) const
-{
-    m_ram.load(data, size);
-}
+Machine::~Machine() = default;
 
-void machine::run()
+void Machine::run()
 {
     for (size_t i = 0; i < 1000000; i++) {
-        m_harts[0].step();
+        harts->at(0).step();
         // TBI check shutdown address and break
     }
 }
 
-void machine::dump(std::ostream& os) const
+void Machine::load(const uint8_t* data, const std::size_t size) const
+{
+    dram->load(data, size);
+}
+
+void Machine::dump(std::ostream& os) const
 {
     os << "[HARTS]" << std::endl;
-    for (const auto& h : m_harts) {
+    for (const auto& h : *harts) {
         h.dump_regs(os);
     }
 
     os << std::endl;
 
     std::cout << "[RAM]" << std::endl;
-    m_ram.dump(os);
+    dram->dump(os);
 }

@@ -8,7 +8,7 @@
 #include "defs.h"
 
 namespace riscv_emu {
-instr_effect execute(instr_info instr, const uint64_t reg_file[REG_COUNT], uint64_t pc, privilege_level priv);
+InstrEffect execute(InstrInfo instr, const uint64_t reg_file[REG_COUNT], uint64_t pc, PrivilegeLevel priv);
 } // namespace riscv_emu
 
 #endif // RISCV_EMU_EXECUTE_H

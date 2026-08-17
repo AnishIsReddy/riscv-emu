@@ -1,8 +1,8 @@
 #include <fstream>
-
+#include <iostream>
 #include "machine.h"
 
-std::vector<uint8_t> load_binary_file(const std::string& filename)
+static std::vector<uint8_t> load_binary_file(const std::string& filename)
 {
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
     const auto size = file.tellg();
@@ -14,7 +14,7 @@ std::vector<uint8_t> load_binary_file(const std::string& filename)
 
 int main(const int argc, char* argv[])
 {
-    riscv_emu::machine machine;
+    riscv_emu::Machine machine;
 
     std::string filename = "test.bin";
     if (argc == 2) {

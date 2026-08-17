@@ -7,19 +7,18 @@
 
 #include <cstdint>
 #include <iostream>
-
 #include "csr_file.h"
 #include "defs.h"
 
 namespace riscv_emu {
 namespace mem_io {
-class bus;
+class Bus;
 }
 
-class hart
+class Hart
 {
   public:
-    explicit hart(mem_io::bus* bus_ptr, size_t id);
+    explicit Hart(mem_io::Bus* bus_ptr, size_t id);
 
     void step();
     void dump_regs(std::ostream& os) const;
@@ -27,16 +26,16 @@ class hart
     const size_t hart_id;
 
   private:
-    class next_state
+    class NextState
     {
       public:
-        next_state(uint64_t* pc_ptr, privilege_level* priv_ptr) : hart_pc(pc_ptr), hart_priv(priv_ptr)
+        NextState(uint64_t* pc_ptr, PrivilegeLevel* priv_ptr) : hart_pc(pc_ptr), hart_priv(priv_ptr)
         {
             next_pc = *hart_pc;
             next_priv = *hart_priv;
         }
 
-        ~next_state()
+        ~NextState()
         {
             *hart_pc = next_pc;
             *hart_priv = next_priv;
@@ -49,7 +48,7 @@ class hart
             next_pc = value;
         }
 
-        void set_priv(const privilege_level value)
+        void set_priv(const PrivilegeLevel value)
         {
             if (trapped)
                 return;
@@ -66,22 +65,22 @@ class hart
 
       private:
         uint64_t next_pc;
-        privilege_level next_priv;
+        PrivilegeLevel next_priv;
         uint64_t* hart_pc;
-        privilege_level* hart_priv;
+        PrivilegeLevel* hart_priv;
         bool trapped = false;
     };
 
-    void apply_instr_effect(next_state& ns, const instr_effect::effect_type& effect, uint64_t new_pc);
-    std::optional<uint64_t> fetch_next_instr(next_state& ns);
-    void raise(next_state& ns, trap_cause cause, uint64_t tval);
+    void apply_instr_effect(NextState& ns, const InstrEffect::effect_type& effect, uint64_t new_pc);
+    std::optional<uint64_t> fetch_next_instr(NextState& ns);
+    void raise(NextState& ns, TrapCause cause, uint64_t tval);
 
     uint64_t pc = 0;
-    privilege_level priv = privilege_level::M;
+    PrivilegeLevel priv = PrivilegeLevel::M;
 
     uint64_t regs[REG_COUNT] = {};
-    mem_io::bus* mem_bus;
-    csr_file csrs;
+    mem_io::Bus* memory_bus;
+    CsrFile csr_file;
 
     template <class... Ts>
     struct overloaded : Ts...
