@@ -2,8 +2,7 @@
 // Created by anish on 3/29/2026.
 //
 
-#ifndef RISCV_EMU_DEFS_H
-#define RISCV_EMU_DEFS_H
+#pragma once
 
 #include <cstdint>
 #include <iostream>
@@ -326,9 +325,9 @@ class BusDevice
     virtual ~BusDevice() = default;
 
     [[nodiscard]]
-    virtual uint64_t read(uint64_t offset, uint8_t size) const = 0;
+    virtual std::optional<uint64_t> read(uint64_t offset, uint8_t size) const = 0;
 
-    virtual void write(uint64_t offset, uint64_t data, uint8_t size) = 0;
+    virtual bool write(uint64_t offset, uint64_t data, uint8_t size) = 0;
 
     [[nodiscard]]
     uint64_t max_offset() const
@@ -519,4 +518,3 @@ inline uint64_t logical_shift_right(const uint64_t value, const uint8_t bits)
     return static_cast<uint64_t>(value) >> bits;
 }
 } // namespace riscv_emu
-#endif // RISCV_EMU_DEFS_H

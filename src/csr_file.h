@@ -2,8 +2,7 @@
 // Created by anish on 6/15/2026.
 //
 
-#ifndef RISCV_EMU_CSR_H
-#define RISCV_EMU_CSR_H
+#pragma once
 
 #include <cstdint>
 #include <expected>
@@ -170,5 +169,3 @@ class CsrFile
     uint64_t mseccfg = 0;
 };
 } // namespace riscv_emu
-
-#endif // RISCV_EMU_CSR_H

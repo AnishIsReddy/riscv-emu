@@ -2,8 +2,7 @@
 // Created by anish on 3/29/2026.
 //
 
-#ifndef RISCV_EMU_HART_H
-#define RISCV_EMU_HART_H
+#pragma once
 
 #include <cstdint>
 #include <iostream>
@@ -89,4 +88,3 @@ class Hart
     };
 };
 } // namespace riscv_emu
-#endif // RISCV_EMU_HART_H

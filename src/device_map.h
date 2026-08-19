@@ -2,9 +2,6 @@
 // Created by anish on 8/16/2026.
 //
 
-#ifndef RISCV_EMU_DEVICE_MAP_H
-#define RISCV_EMU_DEVICE_MAP_H
-
 #pragma once
 
 #include <vector>
@@ -35,5 +32,3 @@ class DeviceMap
 };
 
 } // namespace riscv_emu::mem_io
-
-#endif // RISCV_EMU_DEVICE_MAP_H

@@ -2,8 +2,7 @@
 // Created by anish on 4/14/2026.
 //
 
-#ifndef RISCV_EMU_MACHINE_H
-#define RISCV_EMU_MACHINE_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -35,5 +34,3 @@ class Machine
     std::unique_ptr<std::vector<Hart>> harts;
 };
 } // namespace riscv_emu
-
-#endif // RISCV_EMU_MACHINE_H

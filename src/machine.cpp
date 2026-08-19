@@ -15,7 +15,7 @@ Machine::Machine()
 {
     dram = std::make_unique<mem_io::Ram>(MEM_SIZE);
     mem_io::DeviceMap bus_map;
-    bus_map.add_mapping(0x00000000, *dram);
+    bus_map.add_mapping(0x80000000, *dram);
     bus = std::make_unique<mem_io::Bus>(std::move(bus_map));
     harts->emplace_back(bus.get(), 0);
 }

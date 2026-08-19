@@ -29,8 +29,7 @@ bool DeviceMap::try_store(const uint64_t addr, const uint64_t value, const uint8
         const uint64_t offset = addr - base_addr;
         const uint64_t max = device->max_offset();
         if (offset < max && offset + size <= max) {
-            device->write(offset, value, size);
-            return true;
+            return device->write(offset, value, size);
         }
     }
     return false;

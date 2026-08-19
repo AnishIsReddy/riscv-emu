@@ -2,8 +2,7 @@
 // Created by anish on 4/12/2026.
 //
 
-#ifndef RISCV_EMU_BUS_H
-#define RISCV_EMU_BUS_H
+#pragma once
 
 #include <vector>
 #include "defs.h"
@@ -58,5 +57,3 @@ class Bus
     std::vector<HartReservation> hart_reservations;
 };
 } // namespace riscv_emu::mem_io
-
-#endif // RISCV_EMU_BUS_H
