@@ -15,12 +15,20 @@ Bus::Bus(DeviceMap&& map) : device_map(std::move(map))
 template <UintFamily T>
 std::optional<T> Bus::load(const uint64_t addr) const
 {
+    // overflow protection
+    if (addr > addr + sizeof(T)) {
+        return std::nullopt;
+    }
     return device_map.try_load(addr, sizeof(T));
 }
 
 template <UintFamily T>
 bool Bus::store(const uint64_t addr, const T data)
 {
+    // overflow protection
+    if (addr > addr + sizeof(T)) {
+        return false;
+    }
     clear_addr_reservations(addr, sizeof(T));
     return device_map.try_store(addr, data, sizeof(T));
 }
@@ -29,6 +37,11 @@ template <UintFamily T>
 std::optional<T> Bus::load_reserved(const uint64_t addr, const size_t hart_id)
 {
     static_assert(sizeof(T) == 4 || sizeof(T) == 8, "LR is only supported for 32-bit and 64-bit widths");
+
+    // overflow protection
+    if (addr > addr + sizeof(T)) {
+        return std::nullopt;
+    }
 
     auto load_result = load<T>(addr);
     if (load_result.has_value()) {
@@ -41,6 +54,12 @@ template <UintFamily T>
 std::optional<bool> Bus::store_conditional(const uint64_t addr, const T data, const size_t hart_id)
 {
     static_assert(sizeof(T) == 4 || sizeof(T) == 8, "SC is only supported for 32-bit and 64-bit widths");
+
+    // overflow protection
+    if (addr > addr + sizeof(T)) {
+        return std::nullopt;
+    }
+
     const bool ok = holds_reservation(addr, sizeof(T), hart_id);
     hart_reservations[hart_id].invalidate();
     if (ok) {
@@ -85,6 +104,11 @@ template <UintFamily T>
 std::optional<T> Bus::handle_amo(const AmoType type, const uint64_t addr, const T data)
 {
     static_assert(sizeof(T) == 4 || sizeof(T) == 8, "AMO op must be 32 or 64 bit");
+
+    // overflow protection
+    if (addr > addr + sizeof(T)) {
+        return std::nullopt;
+    }
 
     auto load_result = load<T>(addr);
     if (!load_result.has_value()) {
