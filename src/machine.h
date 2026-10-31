@@ -20,7 +20,7 @@ class Machine
   public:
     Machine();
     ~Machine();
-    void run();
+    void run() const;
     void load(const uint8_t* data, std::size_t size) const;
     void dump(std::ostream& os) const;
 

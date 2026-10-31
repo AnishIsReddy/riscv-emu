@@ -22,7 +22,7 @@ Machine::Machine()
 
 Machine::~Machine() = default;
 
-void Machine::run()
+void Machine::run() const
 {
     for (size_t i = 0; i < 1000000; i++) {
         harts->at(0).step();

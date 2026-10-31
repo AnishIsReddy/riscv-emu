@@ -28,6 +28,8 @@ add_executable(riscv_emu
         src/csr_file.h
         src/device_map.cpp
         src/device_map.h
+        src/clint.cpp
+        src/clint.h
 )
 target_compile_options(riscv_emu PRIVATE -Wall -Wextra -Werror=return-type -Werror=switch)
 target_compile_options(riscv_emu PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
