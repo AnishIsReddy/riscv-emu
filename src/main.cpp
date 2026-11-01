@@ -1,6 +1,7 @@
 #include <fstream>
 #include <iostream>
-#include "machine.h"
+
+#include "machine/machine.h"
 
 static std::vector<uint8_t> load_binary_file(const std::string& filename)
 {

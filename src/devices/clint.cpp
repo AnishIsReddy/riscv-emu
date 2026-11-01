@@ -2,19 +2,21 @@
 // Created by anish on 8/18/2026.
 //
 
-#include "clint.h"
+#include "devices/clint.h"
+
+#include "common/int_cast.h"
 
 using namespace riscv_emu::mem_io;
 
-Clint::Clint(const size_t hart_count) : BusDevice(CLINT_ADDR_WIDTH), hart_count(hart_count)
-{
-}
+constexpr uint64_t MSIP_MASK = 0x1;
+
+Clint::Clint(const size_t hart_count) : BusDevice(CLINT_ADDR_WIDTH), hart_count(hart_count) {}
 
 std::optional<uint64_t> Clint::read(const uint64_t offset, const uint8_t size) const
 {
     if (offset >= msip_base && offset + size <= msip_base + msip_size) {
         if (offset % 4 != 0 || size != 4) {
-            return false;
+            return std::nullopt;
         }
         return msip[offset / 4];
     }
@@ -43,7 +45,7 @@ bool Clint::write(const uint64_t offset, const uint64_t data, const uint8_t size
         if (offset % 4 != 0 || size != 4) {
             return false;
         }
-        msip[offset / 4] = data;
+        msip[offset / 4] = u32(data & MSIP_MASK);
         return true;
     }
 

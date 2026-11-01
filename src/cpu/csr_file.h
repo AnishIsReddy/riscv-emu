@@ -6,10 +6,12 @@
 
 #include <cstdint>
 #include <expected>
+#include <optional>
+#include <utility>
 
-#include "defs.h"
+#include "cpu/trap.h"
 
-namespace riscv_emu {
+namespace riscv_emu::cpu {
 class CsrFile
 {
   public:
@@ -37,17 +39,17 @@ class CsrFile
     static constexpr uint64_t MIDELEG_WRITE_MASK = 0x222; // S-mode interrupts (1,5,9); M-interrupts excluded
     static constexpr uint64_t MTVEC_WRITE_MASK = ~0x2; // everything except bit 1 should be writable
 
+    // M-Mode and S-Mode interrupts
     static constexpr uint64_t MIE_WRITE_MASK = 1 << InterruptType::MACHINE_SOFTWARE |
                                                1 << InterruptType::MACHINE_TIMER |
                                                1 << InterruptType::MACHINE_EXTERNAL |
                                                1 << InterruptType::SUPERVISOR_SOFTWARE |
                                                1 << InterruptType::SUPERVISOR_TIMER |
                                                1 << InterruptType::SUPERVISOR_EXTERNAL;
-    // M-Mode and S-Mode interrupts
 
+    // Software interrupts should be writable
     static constexpr uint64_t MIP_WRITE_MASK =
         1 << InterruptType::MACHINE_SOFTWARE | 1 << InterruptType::SUPERVISOR_SOFTWARE;
-    // Software interrupts should be writable
 
     class MStatusValue
     {
@@ -87,9 +89,15 @@ class CsrFile
             return raw >> MPIE & 1;
         }
 
-        void set_mie(const bool v) { set_bit(MIE, v); }
+        void set_mie(const bool v)
+        {
+            set_bit(MIE, v);
+        }
 
-        void set_mpie(const bool v) { set_bit(MPIE, v); }
+        void set_mpie(const bool v)
+        {
+            set_bit(MPIE, v);
+        }
 
         // 2-bit MPP field [12:11]
         [[nodiscard]]
@@ -98,7 +106,10 @@ class CsrFile
             return raw >> MPP & 0b11ul;
         }
 
-        void set_mpp(const uint8_t mode) { raw = (raw & ~(0b11ul << MPP)) | (uint64_t{mode & 0b11u} << MPP); }
+        void set_mpp(const uint8_t mode)
+        {
+            raw = (raw & ~(0b11ul << MPP)) | (uint64_t{mode & 0b11u} << MPP);
+        }
 
         [[nodiscard]]
         uint8_t mprv() const
@@ -106,7 +117,10 @@ class CsrFile
             return raw >> MPRV & 1;
         }
 
-        void set_mprv(const bool v) { set_bit(MPRV, v); }
+        void set_mprv(const bool v)
+        {
+            set_bit(MPRV, v);
+        }
 
         [[nodiscard]]
         uint8_t tw() const
@@ -126,7 +140,10 @@ class CsrFile
             return raw;
         }
 
-        void write(const uint64_t value) { raw = (value & MSTATUS_WRITE_MASK) | (raw & ~MSTATUS_WRITE_MASK); }
+        void write(const uint64_t value)
+        {
+            raw = (value & MSTATUS_WRITE_MASK) | (raw & ~MSTATUS_WRITE_MASK);
+        }
 
       private:
         void set_bit(const int pos, const bool v)
@@ -168,4 +185,4 @@ class CsrFile
     uint64_t menvcfg = 0;
     uint64_t mseccfg = 0;
 };
-} // namespace riscv_emu
+} // namespace riscv_emu::cpu

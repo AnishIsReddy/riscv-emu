@@ -9,41 +9,25 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_
             "GCC >= 16 required for C++26 reflection (found ${CMAKE_CXX_COMPILER_VERSION})")
 endif ()
 
-add_executable(riscv_emu
-        src/main.cpp
-        src/hart.cpp
-        src/hart.h
-        src/decode.cpp
-        src/decode.h
-        src/defs.h
-        src/ram.cpp
-        src/ram.h
-        src/bus.cpp
-        src/bus.h
-        src/execute.cpp
-        src/execute.h
-        src/machine.cpp
-        src/machine.h
-        src/csr_file.cpp
-        src/csr_file.h
-        src/device_map.cpp
-        src/device_map.h
-        src/clint.cpp
-        src/clint.h
-)
-target_compile_options(riscv_emu PRIVATE -Wall -Wextra -Werror=return-type -Werror=switch)
+# Everything except main.cpp, built once and shared by both executables.
+add_library(riscv_emu_core STATIC
+        src/machine/machine.cpp
+        src/cpu/hart.cpp src/cpu/csr_file.cpp src/cpu/decode.cpp src/cpu/execute.cpp
+        src/mem/bus.cpp src/mem/device_map.cpp
+        src/devices/ram.cpp src/devices/clint.cpp)
+target_include_directories(riscv_emu_core PUBLIC src)
+target_compile_options(riscv_emu_core PRIVATE -Wall -Wextra -Werror=return-type -Werror=switch)
+
+add_executable(riscv_emu src/main.cpp)
+target_link_libraries(riscv_emu PRIVATE riscv_emu_core)
 target_compile_options(riscv_emu PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
 target_link_options(riscv_emu PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
 
 enable_testing()
 
-add_executable(test_execute
-        test/isa/test_execute.cpp
-        src/decode.cpp
-        src/execute.cpp)
-
+add_executable(test_execute test/isa/test_execute.cpp)
+target_link_libraries(test_execute PRIVATE riscv_emu_core)
 target_compile_options(test_execute PRIVATE -freflection)
-target_include_directories(test_execute PRIVATE src)
 
 # --- CTest discovery: ask the built binary for its tests -------------------
 # The harness self-registers tests and reports them via --list; after every

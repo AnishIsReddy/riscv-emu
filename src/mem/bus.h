@@ -4,33 +4,37 @@
 
 #pragma once
 
+#include <cstddef>
+#include <optional>
 #include <vector>
-#include "defs.h"
-#include "device_map.h"
+
+#include "cpu/effect.h"
+#include "mem/bus_device.h"
+#include "mem/device_map.h"
 
 namespace riscv_emu::mem_io {
 
 class Bus
 {
   public:
-    explicit Bus(DeviceMap&& map);
+    Bus(DeviceMap&& map, size_t hart_count);
 
-    template <UintFamily T>
+    template <LoadFamily T>
     [[nodiscard]]
     std::optional<T> load(uint64_t addr) const;
 
     template <UintFamily T>
     bool store(uint64_t addr, T data);
 
-    template <UintFamily T>
+    template <LoadResFamily T>
     [[nodiscard]]
     std::optional<T> load_reserved(uint64_t addr, size_t hart_id);
 
-    template <UintFamily T>
+    template <AtomicFamily T>
     std::optional<bool> store_conditional(uint64_t addr, T data, size_t hart_id);
 
-    template <UintFamily T>
-    std::optional<T> handle_amo(AmoType type, uint64_t addr, T data);
+    template <AtomicFamily T>
+    std::optional<T> handle_amo(cpu::AmoType type, uint64_t addr, T data);
 
   private:
     void clear_addr_reservations(uint64_t addr, uint8_t size);
@@ -50,7 +54,10 @@ class Bus
             return size != 0;
         }
 
-        void invalidate() { size = 0; }
+        void invalidate()
+        {
+            size = 0;
+        }
     };
 
     DeviceMap device_map;

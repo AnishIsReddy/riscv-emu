@@ -4,8 +4,13 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <iosfwd>
 #include <memory>
-#include "defs.h"
+#include <optional>
+
+#include "mem/bus_device.h"
 
 namespace riscv_emu::mem_io {
 class Ram : public BusDevice

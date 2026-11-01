@@ -3,10 +3,12 @@
 //
 
 #pragma once
+
+#include <cstdint>
 #include <memory>
+#include <optional>
 
-
-#include "defs.h"
+#include "mem/bus_device.h"
 
 namespace riscv_emu::mem_io {
 

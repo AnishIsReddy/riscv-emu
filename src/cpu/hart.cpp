@@ -2,30 +2,35 @@
 // Created by anish on 3/29/2026.
 //
 
-#include "hart.h"
+#include "cpu/hart.h"
 
 #include <iomanip>
 #include <variant>
 
-#include "bus.h"
-#include "csr_file.h"
-#include "decode.h"
-#include "execute.h"
+#include "common/int_cast.h"
+#include "cpu/decode.h"
+#include "cpu/execute.h"
+#include "mem/bus.h"
 
+namespace riscv_emu::cpu {
 using namespace riscv_emu;
 
-Hart::Hart(mem_io::Bus* bus_ptr, const size_t id) : hart_id(id), memory_bus(bus_ptr), csr_file(id)
-{
-}
+Hart::Hart(mem_io::Bus* bus_ptr, const size_t id) : hart_id(id), memory_bus(bus_ptr), csr_file(id) {}
 
-std::optional<uint64_t> Hart::fetch_next_instr(NextState& ns)
+std::optional<uint32_t> Hart::fetch_next_instr(NextState& ns)
 {
     if (pc & 0x3) {
         raise(ns, ExceptionType::INSTR_ADDR_MISALIGNED, pc);
         return std::nullopt;
     }
 
-    return memory_bus->load<uint64_t>(pc);
+    const auto instr = memory_bus->load<uint64_t>(pc);
+
+    if (!instr) {
+        raise(ns, ExceptionType::INSTR_ACCESS_FAULT, pc);
+    }
+
+    return *instr;
 }
 
 void Hart::raise(NextState& ns, const TrapCause cause, const uint64_t tval)
@@ -40,18 +45,18 @@ void Hart::apply_instr_effect(NextState& ns, const InstrEffect::effect_type& eff
 {
     ns.set_pc(new_pc);
     auto visitor = overloaded{[&](const InstrEffect::NoEffect&) {},
-                              [&](const InstrEffect::UpdateRd& e) { regs[e.rd] = e.value; },
-                              [&]<mem_io::UintFamily T>(const InstrEffect::LoadRdFromMem<T>& e)
+                              [&](const InstrEffect::UpdateRd& e)
+                              {
+                                  regs[e.rd] = e.value;
+                              },
+                              [&]<mem_io::LoadFamily T>(const InstrEffect::LoadMem<T>& e)
                               {
                                   auto load_result = memory_bus->load<T>(e.addr);
-                                  if (!load_result.has_value()) {
+                                  if (!load_result) {
                                       raise(ns, ExceptionType::LOAD_ACCESS_FAULT, e.addr);
                                       return;
                                   }
-                                  regs[e.rd] = static_cast<uint64_t>(load_result.value());
-                                  if (e.sign_ext) {
-                                      regs[e.rd] = sign_extend(regs[e.rd], sizeof(T) * 8);
-                                  }
+                                  regs[e.rd] = u64(*load_result);
                               },
                               [&]<mem_io::UintFamily T>(const InstrEffect::StoreMem<T>& e)
                               {
@@ -60,46 +65,43 @@ void Hart::apply_instr_effect(NextState& ns, const InstrEffect::effect_type& eff
                                       raise(ns, ExceptionType::STORE_AMO_ACCESS_FAULT, e.addr);
                                   }
                               },
-                              [&]<mem_io::UintFamily T>(const InstrEffect::LoadReserved<T>& e)
+                              [&]<mem_io::LoadResFamily T>(const InstrEffect::LoadReserved<T>& e)
                               {
                                   auto load_result = memory_bus->load_reserved<T>(e.addr, hart_id);
-                                  if (!load_result.has_value()) {
+                                  if (!load_result) {
                                       raise(ns, ExceptionType::LOAD_ACCESS_FAULT, e.addr);
                                       return;
                                   }
-                                  regs[e.rd] = load_result.value();
-                                  {
-                                      regs[e.rd] = sign_extend(regs[e.rd], sizeof(T) * 8);
-                                  }
+
+                                  regs[e.rd] = u64(*load_result);
                               },
-                              [&]<mem_io::UintFamily T>(const InstrEffect::StoreConditional<T>& e)
+                              [&]<mem_io::AtomicFamily T>(const InstrEffect::StoreConditional<T>& e)
                               {
-                                  // SC writes 0 to rd on success / nonzero on failure (RISC-V spec);
-                                  // store_conditional() returns true on success, so negate to bridge the conventions
                                   auto store_result = memory_bus->store_conditional<T>(e.addr, e.value, hart_id);
-                                  if (!store_result.has_value()) {
+                                  if (!store_result) {
                                       raise(ns, ExceptionType::STORE_AMO_ACCESS_FAULT, e.addr);
                                       return;
                                   }
 
-                                  if (store_result.value()) {
+                                  // SC writes 0 to rd on success / nonzero on failure (RISC-V spec);
+                                  // store_conditional() returns true on success, so (true -> 0) and (false -> 1).
+                                  if (*store_result) {
                                       regs[e.rd] = 0;
                                   }
                                   else {
                                       regs[e.rd] = 1;
                                   }
                               },
-                              [&]<mem_io::UintFamily T>(const InstrEffect::AmoRmw<T>& e)
+                              [&]<mem_io::AtomicFamily T>(const InstrEffect::AmoRmw<T>& e)
                               {
                                   auto amo_result = memory_bus->handle_amo<T>(e.type, e.addr, e.value);
-                                  if (!amo_result.has_value()) {
+                                  if (!amo_result) {
                                       raise(ns, ExceptionType::STORE_AMO_ACCESS_FAULT, e.addr);
                                       return;
                                   }
-                                  regs[e.rd] = amo_result.value();
-                                  if (e.sign_ext) {
-                                      regs[e.rd] = sign_extend(regs[e.rd], sizeof(T) * 8);
-                                  }
+
+                                  // all AMOs should be sign extended even though they operate on u32 or u64 only
+                                  regs[e.rd] = u64(static_cast<std::make_signed_t<T>>(*amo_result));
                               },
                               [&](const InstrEffect::CsrRmw& e)
                               {
@@ -107,11 +109,11 @@ void Hart::apply_instr_effect(NextState& ns, const InstrEffect::effect_type& eff
                                   uint64_t to_reg_value = 0;
                                   if (!e.skip_read) {
                                       const auto read_result = csr_file.read(e.addr, priv);
-                                      if (!read_result.has_value()) {
+                                      if (!read_result) {
                                           raise(ns, read_result.error(), 0);
                                           return;
                                       }
-                                      to_reg_value = read_result.value();
+                                      to_reg_value = *read_result;
                                   }
 
                                   switch (e.type) {
@@ -132,15 +134,18 @@ void Hart::apply_instr_effect(NextState& ns, const InstrEffect::effect_type& eff
 
                                   if (!e.skip_write) {
                                       const auto write_result = csr_file.write(e.addr, to_csr_value, priv);
-                                      if (write_result.has_value()) {
-                                          raise(ns, write_result.value(), 0);
+                                      if (write_result) {
+                                          raise(ns, *write_result, 0);
                                           return;
                                       }
                                   }
 
                                   regs[e.rd] = to_reg_value;
                               },
-                              [&](const InstrEffect::RaiseTrap& e) { raise(ns, e.cause, e.tval); },
+                              [&](const InstrEffect::RaiseTrap& e)
+                              {
+                                  raise(ns, e.cause, e.tval);
+                              },
                               [&](const InstrEffect::TrapReturn& e)
                               {
                                   if (e.return_priv == PrivilegeLevel::M) {
@@ -164,19 +169,21 @@ void Hart::apply_instr_effect(NextState& ns, const InstrEffect::effect_type& eff
 void Hart::step()
 {
     // Increment csr performance counter (mcycles)
-    NextState ns(&pc, &priv);
+    NextState ns(pc, priv);
     csr_file.increment_cycle_count();
+
+    // TBI check interrupts and trap to caller if needed
 
     // Fetch
     const auto raw_instr = fetch_next_instr(ns);
-    if (!raw_instr.has_value()) {
+    if (!raw_instr) {
         return;
     }
 
     // Decode
-    const auto instr = decode(raw_instr.value());
-    if (instr.op_type == InstrType::INVALID) {
-        raise(ns, ExceptionType::ILLEGAL_INSTRUCTION, 0);
+    const auto instr = decode(*raw_instr);
+    if (instr.op == Op::INVALID) {
+        raise(ns, ExceptionType::ILLEGAL_INSTRUCTION, 0); // TBI return tval instead of 0
         return;
     }
 
@@ -198,3 +205,4 @@ void Hart::dump_regs(std::ostream& os) const
            << std::setw(16) << regs[i] << "\n";
     }
 }
+} // namespace riscv_emu::cpu

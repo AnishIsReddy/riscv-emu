@@ -22,9 +22,12 @@
 
 #include <algorithm>
 
-#include "../../src/decode.h"
-#include "../../src/defs.h"
-#include "../../src/execute.h"
+#include "common/config.h"
+#include "common/int_cast.h"
+#include "cpu/csr_regs.h"
+#include "cpu/decode.h"
+#include "cpu/effect.h"
+#include "cpu/execute.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -47,6 +50,7 @@
 #include <vector>
 
 using namespace riscv_emu;
+using namespace riscv_emu::cpu;
 
 // ===========================================================================
 // Failure type + small formatting helpers
@@ -56,7 +60,10 @@ struct TestFailure : std::exception
 {
     std::string msg;
     explicit TestFailure(std::string m) : msg{std::move(m)} {}
-    [[nodiscard]] const char* what() const noexcept override { return msg.c_str(); }
+    [[nodiscard]] const char* what() const noexcept override
+    {
+        return msg.c_str();
+    }
 };
 } // namespace
 
@@ -176,7 +183,10 @@ std::vector<TestCase>& registry()
 
 struct Registrar
 {
-    Registrar(const char* n, void (*f)()) { registry().emplace_back(n, f); }
+    Registrar(const char* n, void (*f)())
+    {
+        registry().emplace_back(n, f);
+    }
 };
 } // namespace
 
@@ -316,10 +326,7 @@ static std::expected<uint32_t, std::string> assemble_uncached(const std::string&
         cached_prefix() = pre;
         prefix_known() = true;
         cleanup();
-        return static_cast<uint32_t>(b[0]) |
-               (static_cast<uint32_t>(b[1]) << 8) |
-               (static_cast<uint32_t>(b[2]) << 16) |
-               (static_cast<uint32_t>(b[3]) << 24);
+        return u32(b[0]) | (u32(b[1]) << 8) | (u32(b[2]) << 16) | (u32(b[3]) << 24);
     }
     cleanup();
     return std::unexpected("no working RISC-V assembler found (set RISCV_PREFIX). Tried:\n" + tried);
@@ -333,7 +340,7 @@ static uint32_t assemble(const std::string& line)
     if (const auto it = cache.find(line); it != cache.end())
         return it->second;
     auto res = assemble_uncached(line);
-    if (!res.has_value()) {
+    if (!res) {
         throw TestFailure{res.error()};
     }
     cache.emplace(line, res.value());
@@ -378,14 +385,14 @@ struct Fixture
 // Harness smoke test: validates the assembler integration independently of execute().
 TEST(harness_assembles_addi)
 {
-    CHECK_EQ(assembler::assemble("addi x1, x2, 5"), static_cast<uint32_t>(0x00510093));
+    CHECK_EQ(assembler::assemble("addi x1, x2, 5"), u32(0x00510093));
 }
 
 //
 // instruction_tests.cpp
 //
 // End-to-end tests (assemble -> decode -> execute) covering every instr_type
-// declared in defs.h. Same harness/conventions as the provided examples:
+// declared in cpu/instr.h. Same harness/conventions as the provided examples:
 //   - TEST(name) { ... }
 //   - Fixture with .run("asm"), .pc, .regs[]
 //   - GET_ALT(e, instr_effect::<alt>)  == std::get<...>(e.effect)
@@ -402,7 +409,7 @@ TEST(lui_loads_sign_extended_upper_immediate)
     const auto e = f.run("lui x5, 0xfffff"); // bit 31 set -> sign-extends to 64b
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
     CHECK_EQ(static_cast<int>(u.rd), 5);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'FFFF'F000ULL));
+    CHECK_EQ(u.value, u64(0xFFFF'FFFF'FFFF'F000ULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -427,7 +434,7 @@ TEST(addi_adds_signed_immediate)
     const auto e = f.run("addi x1, x2, 5");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
     CHECK_EQ(static_cast<int>(u.rd), 1);
-    CHECK_EQ(u.value, static_cast<uint64_t>(15));
+    CHECK_EQ(u.value, u64(15));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -437,17 +444,17 @@ TEST(addi_negative_immediate_is_sign_extended)
     f.regs[2] = 0;
     const auto e = f.run("addi x1, x2, -1"); // -1 sign-extends through full width
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'FFFF'FFFFULL));
+    CHECK_EQ(u.value, u64(0xFFFF'FFFF'FFFF'FFFFULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
 TEST(slti_signed_compare_true)
 {
     Fixture f;
-    f.regs[2] = static_cast<uint64_t>(-1); // signed -1 < 5
+    f.regs[2] = u64(-1); // signed -1 < 5
     const auto e = f.run("slti x1, x2, 5");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(1));
+    CHECK_EQ(u.value, u64(1));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -457,7 +464,7 @@ TEST(sltiu_unsigned_compare_true)
     f.regs[2] = 3; // unsigned 3 < 5
     const auto e = f.run("sltiu x1, x2, 5");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(1));
+    CHECK_EQ(u.value, u64(1));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -467,7 +474,7 @@ TEST(sltiu_treats_negative_immediate_as_large_unsigned)
     f.regs[2] = 0; // 0 < (uint64)-1  -> true
     const auto e = f.run("sltiu x1, x2, -1");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(1));
+    CHECK_EQ(u.value, u64(1));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -477,7 +484,7 @@ TEST(xori_bitwise_xor)
     f.regs[2] = 0x0F;
     const auto e = f.run("xori x1, x2, 0xff");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xF0));
+    CHECK_EQ(u.value, u64(0xF0));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -487,7 +494,7 @@ TEST(ori_bitwise_or)
     f.regs[2] = 0x0F;
     const auto e = f.run("ori x1, x2, 0xf0");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFF));
+    CHECK_EQ(u.value, u64(0xFF));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -497,7 +504,7 @@ TEST(andi_bitwise_and)
     f.regs[2] = 0xFF;
     const auto e = f.run("andi x1, x2, 0xf0");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xF0));
+    CHECK_EQ(u.value, u64(0xF0));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -507,7 +514,7 @@ TEST(slli_shifts_left)
     f.regs[2] = 1;
     const auto e = f.run("slli x1, x2, 4");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(16));
+    CHECK_EQ(u.value, u64(16));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -517,7 +524,7 @@ TEST(srli_logical_shift_right)
     f.regs[2] = 0xFF0;
     const auto e = f.run("srli x1, x2, 4");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFF));
+    CHECK_EQ(u.value, u64(0xFF));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -527,7 +534,7 @@ TEST(srai_arithmetic_shift_right_preserves_sign)
     f.regs[2] = 0xFFFF'FFFF'FFFF'FF00ULL; // negative
     const auto e = f.run("srai x1, x2, 4");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'FFFF'FFF0ULL));
+    CHECK_EQ(u.value, u64(0xFFFF'FFFF'FFFF'FFF0ULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -542,7 +549,7 @@ TEST(add_adds_registers)
     f.regs[3] = 20;
     const auto e = f.run("add x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(30));
+    CHECK_EQ(u.value, u64(30));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -553,7 +560,7 @@ TEST(sub_subtracts_registers)
     f.regs[3] = 5;
     const auto e = f.run("sub x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(15));
+    CHECK_EQ(u.value, u64(15));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -564,29 +571,29 @@ TEST(sll_masks_shift_amount_to_six_bits)
     f.regs[3] = 68; // 68 & 0x3f == 4
     const auto e = f.run("sll x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(16));
+    CHECK_EQ(u.value, u64(16));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
 TEST(slt_signed_compare)
 {
     Fixture f;
-    f.regs[2] = static_cast<uint64_t>(-1);
+    f.regs[2] = u64(-1);
     f.regs[3] = 0;
     const auto e = f.run("slt x1, x2, x3"); // -1 < 0 signed
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(1));
+    CHECK_EQ(u.value, u64(1));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
 TEST(sltu_unsigned_compare)
 {
     Fixture f;
-    f.regs[2] = static_cast<uint64_t>(-1); // huge unsigned
+    f.regs[2] = u64(-1); // huge unsigned
     f.regs[3] = 1;
     const auto e = f.run("sltu x1, x2, x3"); // huge < 1 -> false
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0));
+    CHECK_EQ(u.value, u64(0));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -597,7 +604,7 @@ TEST(xor_bitwise)
     f.regs[3] = 0x0F;
     const auto e = f.run("xor x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xF0));
+    CHECK_EQ(u.value, u64(0xF0));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -608,7 +615,7 @@ TEST(srl_logical_shift_right)
     f.regs[3] = 4;
     const auto e = f.run("srl x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFF));
+    CHECK_EQ(u.value, u64(0xFF));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -619,7 +626,7 @@ TEST(sra_arithmetic_shift_right)
     f.regs[3] = 4;
     const auto e = f.run("sra x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'FFFF'FFF0ULL));
+    CHECK_EQ(u.value, u64(0xFFFF'FFFF'FFFF'FFF0ULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -630,7 +637,7 @@ TEST(or_bitwise)
     f.regs[3] = 0xF0;
     const auto e = f.run("or x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFF));
+    CHECK_EQ(u.value, u64(0xFF));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -641,7 +648,7 @@ TEST(and_bitwise)
     f.regs[3] = 0x0F;
     const auto e = f.run("and x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0x0F));
+    CHECK_EQ(u.value, u64(0x0F));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -677,7 +684,7 @@ TEST(jalr_clears_low_bit_of_target)
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
     CHECK_EQ(static_cast<int>(u.rd), 1);
     CHECK_EQ(u.value, f.pc + 4);
-    CHECK_EQ(e.new_pc, static_cast<uint64_t>((0x1235 + 4) & ~static_cast<uint64_t>(1))); // 0x1238
+    CHECK_EQ(e.new_pc, u64((0x1235 + 4) & ~u64(1))); // 0x1238
 }
 
 TEST(jalr_negative_immediate_and_clears_low_bit)
@@ -688,7 +695,7 @@ TEST(jalr_negative_immediate_and_clears_low_bit)
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
     CHECK_EQ(static_cast<int>(u.rd), 5);
     CHECK_EQ(u.value, f.pc + 4);
-    CHECK_EQ(e.new_pc, static_cast<uint64_t>((0x2000 - 3) & ~static_cast<uint64_t>(1)));
+    CHECK_EQ(e.new_pc, u64((0x2000 - 3) & ~u64(1)));
 }
 
 // ===========================================================================
@@ -738,7 +745,7 @@ TEST(bne_not_taken)
 TEST(blt_uses_signed_comparison)
 {
     Fixture f;
-    f.regs[1] = static_cast<uint64_t>(-1); // signed -1
+    f.regs[1] = u64(-1); // signed -1
     f.regs[2] = 1;
     const auto e = f.run("blt x1, x2, __here + 8"); // -1 < 1 signed -> taken
     (void)GET_ALT(e, InstrEffect::NoEffect);
@@ -748,7 +755,7 @@ TEST(blt_uses_signed_comparison)
 TEST(bltu_uses_unsigned_comparison)
 {
     Fixture f;
-    f.regs[1] = static_cast<uint64_t>(-1); // huge unsigned
+    f.regs[1] = u64(-1); // huge unsigned
     f.regs[2] = 1;
     const auto e = f.run("bltu x1, x2, __here + 8"); // huge < 1 -> NOT taken
     (void)GET_ALT(e, InstrEffect::NoEffect);
@@ -759,7 +766,7 @@ TEST(bge_uses_signed_comparison)
 {
     Fixture f;
     f.regs[1] = 1;
-    f.regs[2] = static_cast<uint64_t>(-1);
+    f.regs[2] = u64(-1);
     const auto e = f.run("bge x1, x2, __here + 8"); // 1 >= -1 signed -> taken
     (void)GET_ALT(e, InstrEffect::NoEffect);
     CHECK_EQ(e.new_pc, f.pc + 8);
@@ -768,7 +775,7 @@ TEST(bge_uses_signed_comparison)
 TEST(bgeu_uses_unsigned_comparison)
 {
     Fixture f;
-    f.regs[1] = static_cast<uint64_t>(-1); // huge unsigned
+    f.regs[1] = u64(-1); // huge unsigned
     f.regs[2] = 1;
     const auto e = f.run("bgeu x1, x2, __here + 8"); // huge >= 1 -> taken
     (void)GET_ALT(e, InstrEffect::NoEffect);
@@ -794,10 +801,9 @@ TEST(lw_emits_signed_word_load)
     Fixture f;
     f.regs[2] = 0x1000;
     const auto e = f.run("lw x1, 8(x2)");
-    auto& l = GET_ALT(e, InstrEffect::LoadRdFromMem<uint32_t>);
+    auto& l = GET_ALT(e, InstrEffect::LoadMem<int32_t>);
     CHECK_EQ(static_cast<int>(l.rd), 1);
-    CHECK_EQ(l.addr, static_cast<uint64_t>(0x1008));
-    CHECK_EQ(l.sign_ext, true);
+    CHECK_EQ(l.addr, u64(0x1008));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -806,10 +812,9 @@ TEST(lb_signed_byte_load)
     Fixture f;
     f.regs[2] = 0x1000;
     const auto e = f.run("lb x1, 8(x2)");
-    auto& l = GET_ALT(e, InstrEffect::LoadRdFromMem<uint8_t>);
+    auto& l = GET_ALT(e, InstrEffect::LoadMem<int8_t>);
     CHECK_EQ(static_cast<int>(l.rd), 1);
-    CHECK_EQ(l.addr, static_cast<uint64_t>(0x1008));
-    CHECK_EQ(l.sign_ext, true);
+    CHECK_EQ(l.addr, u64(0x1008));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -818,9 +823,8 @@ TEST(lh_signed_halfword_load)
     Fixture f;
     f.regs[2] = 0x1000;
     const auto e = f.run("lh x1, 8(x2)");
-    auto& l = GET_ALT(e, InstrEffect::LoadRdFromMem<uint16_t>);
-    CHECK_EQ(l.sign_ext, true);
-    CHECK_EQ(l.addr, static_cast<uint64_t>(0x1008));
+    auto& l = GET_ALT(e, InstrEffect::LoadMem<int16_t>);
+    CHECK_EQ(l.addr, u64(0x1008));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -829,9 +833,8 @@ TEST(lbu_unsigned_byte_load)
     Fixture f;
     f.regs[2] = 0x1000;
     const auto e = f.run("lbu x1, 8(x2)");
-    auto& l = GET_ALT(e, InstrEffect::LoadRdFromMem<uint8_t>);
-    CHECK_EQ(l.sign_ext, false);
-    CHECK_EQ(l.addr, static_cast<uint64_t>(0x1008));
+    auto& l = GET_ALT(e, InstrEffect::LoadMem<uint8_t>);
+    CHECK_EQ(l.addr, u64(0x1008));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -840,9 +843,8 @@ TEST(lhu_unsigned_halfword_load)
     Fixture f;
     f.regs[2] = 0x1000;
     const auto e = f.run("lhu x1, 8(x2)");
-    auto& l = GET_ALT(e, InstrEffect::LoadRdFromMem<uint16_t>);
-    CHECK_EQ(l.sign_ext, false);
-    CHECK_EQ(l.addr, static_cast<uint64_t>(0x1008));
+    auto& l = GET_ALT(e, InstrEffect::LoadMem<uint16_t>);
+    CHECK_EQ(l.addr, u64(0x1008));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -851,9 +853,8 @@ TEST(lwu_unsigned_word_load)
     Fixture f;
     f.regs[2] = 0x1000;
     const auto e = f.run("lwu x1, 8(x2)");
-    auto& l = GET_ALT(e, InstrEffect::LoadRdFromMem<uint32_t>);
-    CHECK_EQ(l.sign_ext, false);
-    CHECK_EQ(l.addr, static_cast<uint64_t>(0x1008));
+    auto& l = GET_ALT(e, InstrEffect::LoadMem<uint32_t>);
+    CHECK_EQ(l.addr, u64(0x1008));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -862,9 +863,9 @@ TEST(ld_doubleword_load)
     Fixture f;
     f.regs[2] = 0x1000;
     const auto e = f.run("ld x1, 8(x2)");
-    auto& l = GET_ALT(e, InstrEffect::LoadRdFromMem<uint64_t>);
+    auto& l = GET_ALT(e, InstrEffect::LoadMem<uint64_t>);
     CHECK_EQ(static_cast<int>(l.rd), 1);
-    CHECK_EQ(l.addr, static_cast<uint64_t>(0x1008));
+    CHECK_EQ(l.addr, u64(0x1008));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -881,8 +882,8 @@ TEST(sb_byte_store)
     f.regs[3] = 0xAB;
     const auto e = f.run("sb x3, 8(x2)");
     auto& s = GET_ALT(e, InstrEffect::StoreMem<uint8_t>);
-    CHECK_EQ(s.addr, static_cast<uint64_t>(0x1008));
-    CHECK_EQ(s.value, static_cast<uint8_t>(0xAB));
+    CHECK_EQ(s.addr, u64(0x1008));
+    CHECK_EQ(s.value, u8(0xAB));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -893,8 +894,8 @@ TEST(sh_halfword_store)
     f.regs[3] = 0xABCD;
     const auto e = f.run("sh x3, 8(x2)");
     auto& s = GET_ALT(e, InstrEffect::StoreMem<uint16_t>);
-    CHECK_EQ(s.addr, static_cast<uint64_t>(0x1008));
-    CHECK_EQ(s.value, static_cast<uint16_t>(0xABCD));
+    CHECK_EQ(s.addr, u64(0x1008));
+    CHECK_EQ(s.value, u16(0xABCD));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -905,8 +906,8 @@ TEST(sw_word_store)
     f.regs[3] = 0xDEADBEEF;
     const auto e = f.run("sw x3, 8(x2)");
     auto& s = GET_ALT(e, InstrEffect::StoreMem<uint32_t>);
-    CHECK_EQ(s.addr, static_cast<uint64_t>(0x1008));
-    CHECK_EQ(s.value, static_cast<uint32_t>(0xDEADBEEF));
+    CHECK_EQ(s.addr, u64(0x1008));
+    CHECK_EQ(s.value, u32(0xDEADBEEF));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -917,8 +918,8 @@ TEST(sd_doubleword_store)
     f.regs[3] = 0xDEADBEEFCAFEBABEULL;
     const auto e = f.run("sd x3, 8(x2)");
     auto& s = GET_ALT(e, InstrEffect::StoreMem<uint64_t>);
-    CHECK_EQ(s.addr, static_cast<uint64_t>(0x1008));
-    CHECK_EQ(s.value, static_cast<uint64_t>(0xDEADBEEFCAFEBABEULL));
+    CHECK_EQ(s.addr, u64(0x1008));
+    CHECK_EQ(s.value, u64(0xDEADBEEFCAFEBABEULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -933,7 +934,7 @@ TEST(addiw_sign_extends_32bit_result)
     f.regs[2] = 0x8000'0000ULL; // bit 31 set
     const auto e = f.run("addiw x1, x2, 0");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'8000'0000ULL));
+    CHECK_EQ(u.value, u64(0xFFFF'FFFF'8000'0000ULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -943,7 +944,7 @@ TEST(addiw_wraps_at_32_bits)
     f.regs[2] = 0xFFFF'FFFFULL;
     const auto e = f.run("addiw x1, x2, 1"); // wraps to 0
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0));
+    CHECK_EQ(u.value, u64(0));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -953,7 +954,7 @@ TEST(slliw_sign_extends_result)
     f.regs[2] = 0x0800'0000ULL; // << 4 -> 0x8000'0000 (bit 31 set)
     const auto e = f.run("slliw x1, x2, 4");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'8000'0000ULL));
+    CHECK_EQ(u.value, u64(0xFFFF'FFFF'8000'0000ULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -963,7 +964,7 @@ TEST(srliw_operates_on_low_32_bits)
     f.regs[2] = 0xFFFF'FFFF'FFFF'FFFFULL; // upper bits must be ignored
     const auto e = f.run("srliw x1, x2, 4"); // 0xFFFFFFFF >>l 4 = 0x0FFFFFFF
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0x0FFF'FFFFULL));
+    CHECK_EQ(u.value, u64(0x0FFF'FFFFULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -973,7 +974,7 @@ TEST(sraiw_arithmetic_shift_of_low_32_bits)
     f.regs[2] = 0x8000'0000ULL; // negative 32-bit value
     const auto e = f.run("sraiw x1, x2, 4"); // -> 0xF8000000 sign-extended
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'F800'0000ULL));
+    CHECK_EQ(u.value, u64(0xFFFF'FFFF'F800'0000ULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -984,7 +985,7 @@ TEST(addw_sign_extends_32bit_sum)
     f.regs[3] = 1; // -> 0x8000'0000
     const auto e = f.run("addw x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'8000'0000ULL));
+    CHECK_EQ(u.value, u64(0xFFFF'FFFF'8000'0000ULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -995,7 +996,7 @@ TEST(subw_sign_extends_32bit_difference)
     f.regs[3] = 1; // 0 - 1 = -1 (32-bit)
     const auto e = f.run("subw x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'FFFF'FFFFULL));
+    CHECK_EQ(u.value, u64(0xFFFF'FFFF'FFFF'FFFFULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1006,7 +1007,7 @@ TEST(sllw_masks_shift_to_5_bits)
     f.regs[3] = 0x3F; // 0x3F & 0x1F = 31
     const auto e = f.run("sllw x1, x2, x3"); // 1 << 31 -> 0x80000000 sign-ext
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'8000'0000ULL));
+    CHECK_EQ(u.value, u64(0xFFFF'FFFF'8000'0000ULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1017,7 +1018,7 @@ TEST(srlw_logical_shift_of_low_32_bits)
     f.regs[3] = 4;
     const auto e = f.run("srlw x1, x2, x3"); // 0x0FFFFFFF
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0x0FFF'FFFFULL));
+    CHECK_EQ(u.value, u64(0x0FFF'FFFFULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1028,7 +1029,7 @@ TEST(sraw_arithmetic_shift_of_low_32_bits)
     f.regs[3] = 4;
     const auto e = f.run("sraw x1, x2, x3"); // 0xF8000000 sign-ext
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'F800'0000ULL));
+    CHECK_EQ(u.value, u64(0xFFFF'FFFF'F800'0000ULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1043,7 +1044,7 @@ TEST(mul_low_64_bits)
     f.regs[3] = 7;
     const auto e = f.run("mul x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(42));
+    CHECK_EQ(u.value, u64(42));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1054,7 +1055,7 @@ TEST(mulh_signed_high_bits)
     f.regs[3] = 0x1'0000'0000ULL; // 2^32  -> product 2^64, high = 1
     const auto e = f.run("mulh x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(1));
+    CHECK_EQ(u.value, u64(1));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1065,18 +1066,18 @@ TEST(mulhu_unsigned_high_bits)
     f.regs[3] = 0x1'0000'0000ULL;
     const auto e = f.run("mulhu x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(1));
+    CHECK_EQ(u.value, u64(1));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
 TEST(mulhsu_signed_times_unsigned_high_bits)
 {
     Fixture f;
-    f.regs[2] = static_cast<uint64_t>(-1); // signed -1
+    f.regs[2] = u64(-1); // signed -1
     f.regs[3] = 2; // unsigned 2  -> product -2
     const auto e = f.run("mulhsu x1, x2, x3");
     const auto& [rd, value] = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(value, static_cast<uint64_t>(0xFFFF'FFFF'FFFF'FFFFULL)); // high of -2
+    CHECK_EQ(value, u64(0xFFFF'FFFF'FFFF'FFFFULL)); // high of -2
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1087,7 +1088,7 @@ TEST(div_signed)
     f.regs[3] = 3;
     const auto e = f.run("div x1, x2, x3");
     const auto& [rd, value] = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(value, static_cast<uint64_t>(6));
+    CHECK_EQ(value, u64(6));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1098,7 +1099,7 @@ TEST(div_by_zero_returns_all_ones)
     f.regs[3] = 0;
     const auto e = f.run("div x1, x2, x3");
     const auto& [rd, value] = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(value, static_cast<uint64_t>(0xFFFF'FFFF'FFFF'FFFFULL));
+    CHECK_EQ(value, u64(0xFFFF'FFFF'FFFF'FFFFULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1106,10 +1107,10 @@ TEST(div_signed_overflow_returns_dividend)
 {
     Fixture f;
     f.regs[2] = 0x8000'0000'0000'0000ULL; // INT64_MIN
-    f.regs[3] = static_cast<uint64_t>(-1); // -1  -> overflow
+    f.regs[3] = u64(-1); // -1  -> overflow
     const auto e = f.run("div x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0x8000'0000'0000'0000ULL));
+    CHECK_EQ(u.value, u64(0x8000'0000'0000'0000ULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1120,7 +1121,7 @@ TEST(divu_unsigned)
     f.regs[3] = 3;
     const auto e = f.run("divu x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(6));
+    CHECK_EQ(u.value, u64(6));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1131,7 +1132,7 @@ TEST(divu_by_zero_returns_all_ones)
     f.regs[3] = 0;
     const auto e = f.run("divu x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'FFFF'FFFFULL));
+    CHECK_EQ(u.value, u64(0xFFFF'FFFF'FFFF'FFFFULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1142,7 +1143,7 @@ TEST(rem_signed)
     f.regs[3] = 3;
     const auto e = f.run("rem x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(2));
+    CHECK_EQ(u.value, u64(2));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1153,7 +1154,7 @@ TEST(rem_by_zero_returns_dividend)
     f.regs[3] = 0;
     const auto e = f.run("rem x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(20));
+    CHECK_EQ(u.value, u64(20));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1161,10 +1162,10 @@ TEST(rem_signed_overflow_returns_zero)
 {
     Fixture f;
     f.regs[2] = 0x8000'0000'0000'0000ULL; // INT64_MIN
-    f.regs[3] = static_cast<uint64_t>(-1);
+    f.regs[3] = u64(-1);
     const auto e = f.run("rem x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0));
+    CHECK_EQ(u.value, u64(0));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1175,7 +1176,7 @@ TEST(remu_unsigned)
     f.regs[3] = 3;
     const auto e = f.run("remu x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(2));
+    CHECK_EQ(u.value, u64(2));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1186,7 +1187,7 @@ TEST(remu_by_zero_returns_dividend)
     f.regs[3] = 0;
     const auto e = f.run("remu x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(20));
+    CHECK_EQ(u.value, u64(20));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1202,7 +1203,7 @@ TEST(mulw_sign_extends_low_32_product)
     f.regs[3] = 2; // low32 product = 0xFFFFFFFE
     const auto e = f.run("mulw x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'FFFF'FFFEULL));
+    CHECK_EQ(u.value, u64(0xFFFF'FFFF'FFFF'FFFEULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1213,7 +1214,7 @@ TEST(divw_signed_word)
     f.regs[3] = 3;
     const auto e = f.run("divw x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(6));
+    CHECK_EQ(u.value, u64(6));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1224,7 +1225,7 @@ TEST(divuw_unsigned_word)
     f.regs[3] = 3;
     const auto e = f.run("divuw x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(6));
+    CHECK_EQ(u.value, u64(6));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1235,7 +1236,7 @@ TEST(remw_sign_follows_dividend)
     f.regs[3] = 3; // -7 % 3 = -1
     const auto e = f.run("remw x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(0xFFFF'FFFF'FFFF'FFFFULL));
+    CHECK_EQ(u.value, u64(0xFFFF'FFFF'FFFF'FFFFULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1246,7 +1247,7 @@ TEST(remuw_unsigned_word)
     f.regs[3] = 3;
     const auto e = f.run("remuw x1, x2, x3");
     auto& u = GET_ALT(e, InstrEffect::UpdateRd);
-    CHECK_EQ(u.value, static_cast<uint64_t>(2));
+    CHECK_EQ(u.value, u64(2));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1259,10 +1260,9 @@ TEST(lr_w_emits_word_load_reserved)
     Fixture f;
     f.regs[2] = 0x2000;
     const auto e = f.run("lr.w x1, (x2)");
-    auto& l = GET_ALT(e, InstrEffect::LoadReserved<uint32_t>);
+    auto& l = GET_ALT(e, InstrEffect::LoadReserved<int32_t>);
     CHECK_EQ(static_cast<int>(l.rd), 1);
-    CHECK_EQ(l.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(l.sign_ext, true);
+    CHECK_EQ(l.addr, u64(0x2000));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1273,7 +1273,7 @@ TEST(lr_d_emits_doubleword_load_reserved)
     const auto e = f.run("lr.d x1, (x2)");
     auto& l = GET_ALT(e, InstrEffect::LoadReserved<uint64_t>);
     CHECK_EQ(static_cast<int>(l.rd), 1);
-    CHECK_EQ(l.addr, static_cast<uint64_t>(0x2000));
+    CHECK_EQ(l.addr, u64(0x2000));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1285,8 +1285,8 @@ TEST(sc_w_emits_word_store_conditional)
     const auto e = f.run("sc.w x1, x3, (x2)");
     auto& s = GET_ALT(e, InstrEffect::StoreConditional<uint32_t>);
     CHECK_EQ(static_cast<int>(s.rd), 1);
-    CHECK_EQ(s.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(s.value, static_cast<uint32_t>(0xCAFE));
+    CHECK_EQ(s.addr, u64(0x2000));
+    CHECK_EQ(s.value, u32(0xCAFE));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1298,17 +1298,17 @@ TEST(sc_d_emits_doubleword_store_conditional)
     const auto e = f.run("sc.d x1, x3, (x2)");
     auto& s = GET_ALT(e, InstrEffect::StoreConditional<uint64_t>);
     CHECK_EQ(static_cast<int>(s.rd), 1);
-    CHECK_EQ(s.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(s.value, static_cast<uint64_t>(0x1122'3344'5566'7788ULL));
+    CHECK_EQ(s.addr, u64(0x2000));
+    CHECK_EQ(s.value, u64(0x1122'3344'5566'7788ULL));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
 // ===========================================================================
 // Atomics: AMO  ->  amo_rmw   (exercises to_amo_type mapping for every type)
-//   amo.value == rs2 ; addr == rs1 ; .w => size 4, sign_ext true
+//   amo.value == rs2 ; addr == rs1 ; width from T (the hart always sign-extends .w results)
 // ===========================================================================
 
-// --- 32-bit AMOs: size 4, sign_ext true; addr == rs1, value == rs2 ---------
+// --- 32-bit AMOs: AmoRmw<uint32_t>; addr == rs1, value == rs2 ---------------
 
 TEST(amoswap_w_emits_swap_rmw)
 {
@@ -1319,9 +1319,8 @@ TEST(amoswap_w_emits_swap_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::SWAP));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
-    CHECK_EQ(a.sign_ext, true);
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u32(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1334,9 +1333,8 @@ TEST(amoadd_w_emits_add_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::ADD));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
-    CHECK_EQ(a.sign_ext, true);
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u32(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1349,9 +1347,8 @@ TEST(amoxor_w_emits_xor_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::XOR));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
-    CHECK_EQ(a.sign_ext, true);
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u32(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1364,9 +1361,8 @@ TEST(amoand_w_emits_and_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::AND));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
-    CHECK_EQ(a.sign_ext, true);
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u32(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1379,9 +1375,8 @@ TEST(amoor_w_emits_or_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::OR));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
-    CHECK_EQ(a.sign_ext, true);
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u32(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1394,9 +1389,8 @@ TEST(amomin_w_emits_min_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::MIN));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
-    CHECK_EQ(a.sign_ext, true);
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u32(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1409,9 +1403,8 @@ TEST(amomax_w_emits_max_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::MAX));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
-    CHECK_EQ(a.sign_ext, true);
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u32(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1424,9 +1417,8 @@ TEST(amominu_w_emits_minu_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::MINU));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
-    CHECK_EQ(a.sign_ext, true);
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u32(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1439,13 +1431,12 @@ TEST(amomaxu_w_emits_maxu_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint32_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::MAXU));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint32_t>(0x55));
-    CHECK_EQ(a.sign_ext, true);
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u32(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
-// --- 64-bit AMOs: sign_ext moot for 8-byte, not asserted -----------------
+// --- 64-bit AMOs: AmoRmw<uint64_t> --------------------------------------
 
 TEST(amoswap_d_emits_swap_rmw)
 {
@@ -1456,8 +1447,8 @@ TEST(amoswap_d_emits_swap_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::SWAP));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u64(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1470,8 +1461,8 @@ TEST(amoadd_d_emits_add_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::ADD));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u64(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1484,8 +1475,8 @@ TEST(amoxor_d_emits_xor_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::XOR));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u64(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1498,8 +1489,8 @@ TEST(amoand_d_emits_and_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::AND));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u64(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1512,8 +1503,8 @@ TEST(amoor_d_emits_or_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::OR));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u64(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1526,8 +1517,8 @@ TEST(amomin_d_emits_min_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::MIN));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u64(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1540,8 +1531,8 @@ TEST(amomax_d_emits_max_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::MAX));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u64(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1554,8 +1545,8 @@ TEST(amominu_d_emits_minu_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::MINU));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u64(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1568,8 +1559,8 @@ TEST(amomaxu_d_emits_maxu_rmw)
     auto& a = GET_ALT(e, InstrEffect::AmoRmw<uint64_t>);
     CHECK_EQ(static_cast<int>(a.rd), 1);
     CHECK_EQ(static_cast<int>(a.type), static_cast<int>(AmoType::MAXU));
-    CHECK_EQ(a.addr, static_cast<uint64_t>(0x2000));
-    CHECK_EQ(a.value, static_cast<uint64_t>(0x55));
+    CHECK_EQ(a.addr, u64(0x2000));
+    CHECK_EQ(a.value, u64(0x55));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1588,7 +1579,7 @@ TEST(csrrw_register_form)
     CHECK_EQ(static_cast<int>(c.rd), 1);
     CHECK_EQ(static_cast<int>(c.type), static_cast<int>(CsrOpType::RW));
     CHECK_EQ(c.addr, static_cast<uint16_t>(CsrRegister::MSCRATCH));
-    CHECK_EQ(c.value, static_cast<uint64_t>(0x1234));
+    CHECK_EQ(c.value, u64(0x1234));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1600,7 +1591,7 @@ TEST(csrrs_register_form)
     auto& c = GET_ALT(e, InstrEffect::CsrRmw);
     CHECK_EQ(static_cast<int>(c.type), static_cast<int>(CsrOpType::RS));
     CHECK_EQ(c.addr, static_cast<uint16_t>(CsrRegister::MSCRATCH));
-    CHECK_EQ(c.value, static_cast<uint64_t>(0x00FF));
+    CHECK_EQ(c.value, u64(0x00FF));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1612,7 +1603,7 @@ TEST(csrrc_register_form)
     auto& c = GET_ALT(e, InstrEffect::CsrRmw);
     CHECK_EQ(static_cast<int>(c.type), static_cast<int>(CsrOpType::RC));
     CHECK_EQ(c.addr, static_cast<uint16_t>(CsrRegister::MSCRATCH));
-    CHECK_EQ(c.value, static_cast<uint64_t>(0x00FF));
+    CHECK_EQ(c.value, u64(0x00FF));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1623,7 +1614,7 @@ TEST(csrrwi_immediate_form)
     auto& c = GET_ALT(e, InstrEffect::CsrRmw);
     CHECK_EQ(static_cast<int>(c.type), static_cast<int>(CsrOpType::RW));
     CHECK_EQ(c.addr, static_cast<uint16_t>(CsrRegister::MSCRATCH));
-    CHECK_EQ(c.value, static_cast<uint64_t>(5)); // zero-extended 5-bit imm
+    CHECK_EQ(c.value, u64(5)); // zero-extended 5-bit imm
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1633,7 +1624,7 @@ TEST(csrrsi_immediate_form)
     const auto e = f.run("csrrsi x1, mscratch, 5");
     auto& c = GET_ALT(e, InstrEffect::CsrRmw);
     CHECK_EQ(static_cast<int>(c.type), static_cast<int>(CsrOpType::RS));
-    CHECK_EQ(c.value, static_cast<uint64_t>(5));
+    CHECK_EQ(c.value, u64(5));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1643,7 +1634,7 @@ TEST(csrrci_immediate_form_max_imm)
     const auto e = f.run("csrrci x1, mscratch, 31"); // 0x1F, max 5-bit
     auto& c = GET_ALT(e, InstrEffect::CsrRmw);
     CHECK_EQ(static_cast<int>(c.type), static_cast<int>(CsrOpType::RC));
-    CHECK_EQ(c.value, static_cast<uint64_t>(0x1F));
+    CHECK_EQ(c.value, u64(0x1F));
     CHECK_EQ(e.new_pc, f.pc + 4);
 }
 
@@ -1718,7 +1709,7 @@ TEST(illegal_instruction_raises_trap)
     auto& t = GET_ALT(e, InstrEffect::RaiseTrap);
     CHECK_EQ(t.cause.is_interrupt, false);
     CHECK_EQ(t.cause.code, static_cast<uint64_t>(ExceptionType::ILLEGAL_INSTRUCTION));
-    CHECK_EQ(t.tval, static_cast<uint64_t>(0)); // tval == raw instruction bits
+    CHECK_EQ(t.tval, u64(0)); // tval == raw instruction bits
     // If run() can't assemble ".word", use your raw-word entry point instead,
     // e.g. f.run_raw(0x00000000).
 }
@@ -1840,16 +1831,24 @@ int main(const int argc, char** argv)
             using enum match_policy;
 
         case exact:
-            predicate = [&](const std::string_view pattern) { return name == pattern; };
+            predicate = [&](const std::string_view pattern)
+            {
+                return name == pattern;
+            };
             break;
         case contains:
-            predicate = [&](const std::string_view pattern) { return name.find(pattern) != std::string_view::npos; };
+            predicate = [&](const std::string_view pattern)
+            {
+                return name.find(pattern) != std::string_view::npos;
+            };
             break;
         case prefix:
-            predicate = [&](const std::string_view pattern) { return name.rfind(pattern, 0) == 0; };
+            predicate = [&](const std::string_view pattern)
+            {
+                return name.rfind(pattern, 0) == 0;
+            };
             break;
-        default:
-            std::unreachable();
+        default: std::unreachable();
         };
         return std::ranges::any_of(patterns, predicate);
     };

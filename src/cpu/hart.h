@@ -4,15 +4,23 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <iostream>
-#include "csr_file.h"
-#include "defs.h"
+#include <iosfwd>
+#include <optional>
 
-namespace riscv_emu {
-namespace mem_io {
+#include "common/config.h"
+#include "cpu/csr_file.h"
+#include "cpu/effect.h"
+#include "cpu/trap.h"
+
+namespace riscv_emu::mem_io {
 class Bus;
 }
+
+namespace riscv_emu::cpu {
+
+constexpr uint64_t RESET_PC = 0x8000'0000;
 
 class Hart
 {
@@ -28,16 +36,19 @@ class Hart
     class NextState
     {
       public:
-        NextState(uint64_t* pc_ptr, PrivilegeLevel* priv_ptr) : hart_pc(pc_ptr), hart_priv(priv_ptr)
+        NextState(uint64_t& pc, PrivilegeLevel& priv) : hart_pc(pc), hart_priv(priv)
         {
-            next_pc = *hart_pc;
-            next_priv = *hart_priv;
+            next_pc = hart_pc;
+            next_priv = hart_priv;
         }
+
+        NextState(const NextState&) = delete;
+        NextState& operator=(const NextState&) = delete;
 
         ~NextState()
         {
-            *hart_pc = next_pc;
-            *hart_priv = next_priv;
+            hart_pc = next_pc;
+            hart_priv = next_priv;
         }
 
         void set_pc(const uint64_t value)
@@ -54,7 +65,10 @@ class Hart
             next_priv = value;
         }
 
-        void mark_trapped() { trapped = true; }
+        void mark_trapped()
+        {
+            trapped = true;
+        }
 
         [[nodiscard]]
         bool is_trapped() const
@@ -65,16 +79,16 @@ class Hart
       private:
         uint64_t next_pc;
         PrivilegeLevel next_priv;
-        uint64_t* hart_pc;
-        PrivilegeLevel* hart_priv;
+        uint64_t& hart_pc;
+        PrivilegeLevel& hart_priv;
         bool trapped = false;
     };
 
     void apply_instr_effect(NextState& ns, const InstrEffect::effect_type& effect, uint64_t new_pc);
-    std::optional<uint64_t> fetch_next_instr(NextState& ns);
+    std::optional<uint32_t> fetch_next_instr(NextState& ns);
     void raise(NextState& ns, TrapCause cause, uint64_t tval);
 
-    uint64_t pc = 0;
+    uint64_t pc = RESET_PC;
     PrivilegeLevel priv = PrivilegeLevel::M;
 
     uint64_t regs[REG_COUNT] = {};
@@ -87,4 +101,4 @@ class Hart
         using Ts::operator()...;
     };
 };
-} // namespace riscv_emu
+} // namespace riscv_emu::cpu

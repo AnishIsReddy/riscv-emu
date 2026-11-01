@@ -4,23 +4,31 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <iosfwd>
 #include <memory>
 #include <vector>
 
 namespace riscv_emu {
+
 namespace mem_io {
 class Bus;
+class BusDevice;
 class Ram;
+class Clint;
 } // namespace mem_io
+
+namespace cpu {
 class Hart;
+}
 
 class Machine
 {
   public:
     Machine();
     ~Machine();
-    void run() const;
+    void run();
     void load(const uint8_t* data, std::size_t size) const;
     void dump(std::ostream& os) const;
 
@@ -28,9 +36,12 @@ class Machine
     Machine& operator=(Machine&&) = delete;
 
   private:
-    std::unique_ptr<mem_io::Ram> dram;
-
+    std::vector<std::unique_ptr<mem_io::BusDevice>> devices; // owns all devices
     std::unique_ptr<mem_io::Bus> bus;
-    std::unique_ptr<std::vector<Hart>> harts;
+
+    mem_io::Ram* dram = nullptr; // non-owning, for dump()
+    mem_io::Clint* clint = nullptr; // non-owning, for clock steps
+
+    std::vector<cpu::Hart> harts;
 };
 } // namespace riscv_emu
