@@ -1,0 +1,11 @@
+{
+  "name": "shifts: 64-bit shifts, 6-bit shift amounts",
+  "regs": {
+    "x08": "0x8000000000000000",
+    "x09": "0xF",
+    "x18": "0xFFFFFFFFFFFFFFFC",
+    "x19": "0x10",
+    "x20": "0xFFFFFFFFFFFFFFF",
+    "x21": "0xFFFFFFFFFFFFFFFF"
+  }
+}

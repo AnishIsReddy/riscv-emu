@@ -1,0 +1,21 @@
+{
+  "name": "muldiv: M extension incl. div-by-zero and overflow",
+  "regs": {
+    "x08": "0xFFFFFFFFFFFFFFF2",
+    "x09": "0x1",
+    "x18": "0x1",
+    "x19": "0xFFFFFFFFFFFFFFFF",
+    "x20": "0xFFFFFFFFFFFFFFFD",
+    "x21": "0xFFFFFFFFFFFFFFFF",
+    "x22": "0x7FFFFFFFFFFFFFFC",
+    "x23": "0x1",
+    "x24": "0xFFFFFFFFFFFFFFFF",
+    "x25": "0xFFFFFFFFFFFFFFF9",
+    "x26": "0x8000000000000000",
+    "x27": "0x0",
+    "x06": "0xFFFFFFFFFFFFFFFE",
+    "x07": "0xFFFFFFFFFFFFFFFD",
+    "x30": "0xFFFFFFFF80000000",
+    "x31": "0xFFFFFFFFFFFFFFF9"
+  }
+}

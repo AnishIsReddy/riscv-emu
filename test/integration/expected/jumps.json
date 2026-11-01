@@ -1,0 +1,9 @@
+{
+  "name": "jumps: JAL/JALR, link register, JALR clears bit 0",
+  "regs": {
+    "x08": "0x1A",
+    "x09": "0xA",
+    "x18": "0x11",
+    "x19": "0x1"
+  }
+}

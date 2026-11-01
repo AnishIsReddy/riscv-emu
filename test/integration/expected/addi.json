@@ -1,0 +1,9 @@
+{
+  "name": "addi: positive, negative and max immediates",
+  "regs": {
+    "x01": "0x64",
+    "x02": "0x32",
+    "x03": "0xFFFFFFFFFFFFFFFF",
+    "x04": "0x7FF"
+  }
+}

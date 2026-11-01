@@ -1,0 +1,22 @@
+{
+  "name": "atomics: AMOs sign-extend .W results; LR/SC success and failure",
+  "regs": {
+    "x08": "0x7FFFFFFF",
+    "x09": "0xFFFFFFFF80000000",
+    "x18": "0x5",
+    "x19": "0x5",
+    "x20": "0x5",
+    "x21": "0xFFFFFFFFFFFFFFFD",
+    "x22": "0xFFFFFFFFFFFFFFFD",
+    "x23": "0x2A",
+    "x24": "0x0",
+    "x25": "0x63",
+    "x26": "0x1",
+    "x31": "0xFFFFFFFFFFFFFFFD",
+    "x27": "0x1"
+  },
+  "mem": {
+    "0x80010000": "00000000",
+    "0x80010008": "00000063"
+  }
+}

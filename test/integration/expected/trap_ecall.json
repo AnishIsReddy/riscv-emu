@@ -1,0 +1,9 @@
+{
+  "name": "trap_ecall: ECALL, mepc, MRET, mstatus after MRET",
+  "regs": {
+    "x08": "0x1",
+    "x09": "0xB",
+    "x19": "0x1",
+    "x20": "0x1880"
+  }
+}

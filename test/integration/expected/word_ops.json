@@ -1,0 +1,15 @@
+{
+  "name": "word_ops: *W ops sign-extend 32-bit results",
+  "regs": {
+    "x08": "0xFFFFFFFF80000000",
+    "x09": "0xFFFFFFFF80000000",
+    "x18": "0x5",
+    "x19": "0xFFFFFFFFFFFFFFFF",
+    "x20": "0xFFFFFFFFF8000000",
+    "x21": "0x8000000",
+    "x22": "0x10",
+    "x23": "0x8000000",
+    "x24": "0xFFFFFFFFF8000000",
+    "x25": "0xFFFFFFFF80000000"
+  }
+}

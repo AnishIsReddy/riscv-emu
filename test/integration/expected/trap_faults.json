@@ -1,0 +1,9 @@
+{
+  "name": "trap_faults: illegal instruction, access faults, unknown CSR",
+  "regs": {
+    "x08": "0x4",
+    "x09": "0x2050702",
+    "x19": "0x20",
+    "x20": "0x55"
+  }
+}

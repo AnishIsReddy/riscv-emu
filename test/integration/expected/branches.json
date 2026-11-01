@@ -1,0 +1,7 @@
+{
+  "name": "branches: loop and all branch types",
+  "regs": {
+    "x10": "0x37",
+    "x08": "0x3F"
+  }
+}
