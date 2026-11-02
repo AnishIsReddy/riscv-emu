@@ -4,7 +4,7 @@
 
 #include "cpu/decode.h"
 
-#include "common/int_cast.h"
+#include "common/utils.h"
 
 namespace riscv_emu::cpu {
 using namespace riscv_emu;

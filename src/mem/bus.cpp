@@ -9,7 +9,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "common/util.h"
+#include "common/utils.h"
 #include "mem/device_map.h"
 
 using namespace riscv_emu::mem_io;
@@ -26,7 +26,7 @@ std::optional<T> Bus::load(const uint64_t addr) const
         return std::nullopt;
     }
 
-    return lookup->device->read(lookup->offset, sizeof(T));
+    return lookup->device->read(lookup->offset);
 }
 
 template <UintFamily T>

@@ -2,14 +2,13 @@
 // Created by anish on 4/13/2026.
 //
 
-#include <cassert>
 #include "cpu/execute.h"
+#include <cassert>
 
 #include <cstdint>
 #include <format>
 
-#include "common/int_cast.h"
-#include "common/util.h"
+#include "common/utils.h"
 
 namespace riscv_emu::cpu {
 using namespace riscv_emu;
@@ -21,7 +20,7 @@ static constexpr uint64_t sext32(const uint64_t x)
 }
 
 InstrEffect execute(const DecodedInstr instr, const uint64_t reg_file[REG_COUNT], const uint64_t pc,
-                               const PrivilegeLevel priv)
+                    const PrivilegeLevel priv)
 {
     const uint64_t rs1 = reg_file[instr.rs1];
     const uint64_t rs2 = reg_file[instr.rs2];

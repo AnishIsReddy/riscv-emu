@@ -6,7 +6,7 @@
 #include <iomanip>
 #include <stdexcept>
 
-#include "common/int_cast.h"
+#include "common/utils.h"
 #include "devices/ram.h"
 
 using namespace riscv_emu::mem_io;

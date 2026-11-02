@@ -7,7 +7,7 @@
 #include <ranges>
 #include <stdexcept>
 
-#include "mem/bus_device.h"
+#include "../devices/bus_device.h"
 #include "mem/device_map.h"
 
 using namespace riscv_emu::mem_io;

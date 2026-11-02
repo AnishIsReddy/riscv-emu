@@ -4,7 +4,7 @@
 
 #include "devices/clint.h"
 
-#include "common/int_cast.h"
+#include "common/util.h"
 
 using namespace riscv_emu::mem_io;
 

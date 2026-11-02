@@ -8,7 +8,7 @@
 #include <memory>
 #include <optional>
 
-#include "mem/bus_device.h"
+#include "bus_device.h"
 
 namespace riscv_emu::mem_io {
 

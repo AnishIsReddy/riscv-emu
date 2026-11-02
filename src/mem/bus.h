@@ -8,8 +8,8 @@
 #include <optional>
 #include <vector>
 
+#include "../devices/bus_device.h"
 #include "cpu/effect.h"
-#include "mem/bus_device.h"
 #include "mem/device_map.h"
 
 namespace riscv_emu::mem_io {
