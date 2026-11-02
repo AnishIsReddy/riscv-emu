@@ -23,7 +23,7 @@
 #include <algorithm>
 
 #include "common/config.h"
-#include "common/int_cast.h"
+#include "common/utils.h"
 #include "cpu/csr_regs.h"
 #include "cpu/decode.h"
 #include "cpu/effect.h"

@@ -9,7 +9,7 @@
 #include <optional>
 #include <utility>
 
-#include "common/int_cast.h"
+#include "common/utils.h"
 #include "cpu/csr_regs.h"
 
 namespace riscv_emu::cpu {

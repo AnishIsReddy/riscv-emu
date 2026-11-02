@@ -7,7 +7,7 @@
 #include <iomanip>
 #include <variant>
 
-#include "common/int_cast.h"
+#include "common/utils.h"
 #include "cpu/decode.h"
 #include "cpu/execute.h"
 #include "mem/bus.h"
