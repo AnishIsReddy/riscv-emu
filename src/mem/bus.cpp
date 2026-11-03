@@ -26,7 +26,7 @@ std::optional<T> Bus::load(const uint64_t addr) const
         return std::nullopt;
     }
 
-    return lookup->device->read(lookup->offset);
+    return lookup->device->read(lookup->offset, sizeof(T));
 }
 
 template <UintFamily T>
