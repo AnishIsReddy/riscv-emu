@@ -10,6 +10,8 @@
 #include <memory>
 #include <vector>
 
+#include "devices/ShutdownReg.h"
+
 namespace riscv_emu {
 
 namespace mem_io {
@@ -28,7 +30,7 @@ class Machine
   public:
     Machine();
     ~Machine();
-    void run();
+    uint32_t run();
     void load(const uint8_t* data, std::size_t size) const;
     void dump(std::ostream& os) const;
 
@@ -39,8 +41,9 @@ class Machine
     std::vector<std::unique_ptr<mem_io::BusDevice>> devices; // owns all devices
     std::unique_ptr<mem_io::Bus> bus;
 
-    mem_io::Ram* dram = nullptr; // non-owning, for dump()
-    mem_io::Clint* clint = nullptr; // non-owning, for clock steps
+    mem_io::Ram* dram = nullptr;
+    mem_io::Clint* clint = nullptr;
+    mem_io::ShutdownReg* shutdown_reg = nullptr;
 
     std::vector<cpu::Hart> harts;
 };

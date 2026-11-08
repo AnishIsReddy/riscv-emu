@@ -24,7 +24,9 @@ int main(const int argc, char* argv[])
 
     const auto binary = load_binary_file(filename);
     machine.load(binary.data(), binary.size());
-    machine.run();
+    const auto status = machine.run();
+
     machine.dump(std::cout);
-    return 0;
+
+    return static_cast<int>(status);
 }

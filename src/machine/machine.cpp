@@ -4,6 +4,7 @@
 
 #include "machine/machine.h"
 
+#include <cassert>
 #include <iostream>
 
 #include "common/config.h"
@@ -18,25 +19,26 @@ using namespace riscv_emu;
 Machine::Machine()
 {
     // init devices
-    auto ram = std::make_unique<mem_io::Ram>(MEM_SIZE);
-    auto clint = std::make_unique<mem_io::Clint>(1);
+    auto m_ram = std::make_unique<mem_io::Ram>(MEM_SIZE);
+    auto m_clint = std::make_unique<mem_io::Clint>(1);
+    auto m_shutdown_reg = std::make_unique<mem_io::ShutdownReg>();
 
-    // save dram ref for dump
-    dram = ram.get();
-
-    // save clint for clock steps
-    this->clint = clint.get();
+    dram = m_ram.get();
+    clint = m_clint.get();
+    shutdown_reg = m_shutdown_reg.get();
 
     // init bus
     mem_io::DeviceMap map;
-    map.add_mapping(0x0200'0000, *clint);
-    map.add_mapping(0x8000'0000, *ram);
+    map.add_mapping(0x0200'0000, *m_clint);
+    map.add_mapping(0x8000'0000, *m_ram);
+    map.add_mapping(0x0010'0000, *m_shutdown_reg);
     map.finalize();
     bus = std::make_unique<mem_io::Bus>(std::move(map), 1);
 
     // transfer device ownership to the machine
-    devices.push_back(std::move(ram));
-    devices.push_back(std::move(clint));
+    devices.push_back(std::move(m_ram));
+    devices.push_back(std::move(m_clint));
+    devices.push_back(std::move(m_shutdown_reg));
 
     // create harts
     harts.emplace_back(bus.get(), 0);
@@ -44,11 +46,18 @@ Machine::Machine()
 
 Machine::~Machine() = default;
 
-void Machine::run()
+uint32_t Machine::run()
 {
-    // TBI check shutdown address and break
-    for (size_t i = 0; i < 1000000; i++) {
-        harts[0].step();
+    assert(shutdown_reg);
+
+    while (true) {
+        for (auto& hart : harts) {
+            hart.step();
+
+            if (shutdown_reg->is_shutdown_pending()) {
+                return shutdown_reg->is_panic_shutdown_pending() ? 1 : 0;
+            }
+        }
         clint->step();
     }
 }

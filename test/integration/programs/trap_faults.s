@@ -6,17 +6,17 @@
 _start:
     la t0, handler
     csrw mtvec, t0
-    li s0, 0                # trap count
-    li s1, 0                # mcause log
-    li s3, 0                # mtval sum
+    li s0, 0
+    li s1, 0
+    li s3, 0
 
-    .word 0x00000000        # illegal instruction        -> mcause 2, mtval 0
-    li a0, 0x10             # unmapped address
+    .word 0x00000000
+    li a0, 0x10
     li a1, 0x55
-    lw a1, 0(a0)            # load access fault          -> mcause 5, mtval 0x10
-    mv s4, a1               # a faulting load must not write rd: still 0x55
-    sw a1, 0(a0)            # store access fault         -> mcause 7, mtval 0x10
-    csrw 0x7C0, x0          # nonexistent CSR (write)    -> mcause 2, mtval 0
+    lw a1, 0(a0)
+    mv s4, a1
+    sw a1, 0(a0)
+    csrw 0x7C0, x0
     j halt
 
 handler:
@@ -27,9 +27,11 @@ handler:
     csrr t2, mtval
     add  s3, s3, t2
     csrr t3, mepc
-    addi t3, t3, 4          # skip the faulting instruction
+    addi t3, t3, 4
     csrw mepc, t3
     mret
 
 halt:
-    j halt
+    li   x28, 0x100000
+    li   x29, 0x5555
+    sw   x29, 0(x28)

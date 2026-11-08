@@ -13,8 +13,10 @@ Layout:
     expected/foo.json    - expected values for that program
 
 Programs are linked at the RAM base (0x80000000), where the emulator loads
-them and where the hart starts executing. End each program with an infinite
-loop (e.g. `halt: j halt`) so registers are stable when the emulator stops.
+them and where the hart starts executing. End each program by writing the
+clean-shutdown magic 0x5555 to the shutdown register at 0x00100000
+(sifive_test); the emulator then stops, dumps machine state and exits. Do
+not assert registers clobbered by the shutdown write (t3/t4 are used here).
 
 Toolchain:
   RISCV_PREFIX  tool prefix (default: riscv64-unknown-elf-)

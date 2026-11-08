@@ -4,7 +4,7 @@
 
 #include "devices/clint.h"
 
-#include "common/util.h"
+#include "common/utils.h"
 
 using namespace riscv_emu::mem_io;
 
