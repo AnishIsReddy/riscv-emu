@@ -19,12 +19,14 @@ class Clint : public BusDevice
 
     static constexpr uint64_t CLINT_ADDR_WIDTH = 0xc000;
 
-    [[nodiscard]]
-    std::optional<uint64_t> read(uint64_t offset, uint8_t size) const override;
-
-    bool write(uint64_t offset, uint64_t data, uint8_t size) override;
-
     void step();
+
+  protected:
+    [[nodiscard]]
+    std::optional<uint64_t> read_internal(uint64_t offset, uint8_t size) const override;
+
+    bool write_internal(uint64_t offset, uint64_t data, uint8_t size) override;
+
 
   private:
     const size_t hart_count;

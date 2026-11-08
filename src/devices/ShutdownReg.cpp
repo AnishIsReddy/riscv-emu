@@ -8,12 +8,12 @@
 
 namespace riscv_emu::mem_io {
 
-std::optional<uint64_t> ShutdownReg::read(uint64_t, uint8_t) const
+std::optional<uint64_t> ShutdownReg::read_internal(uint64_t, uint8_t) const
 {
     return 0;
 }
 
-bool ShutdownReg::write(const uint64_t offset, const uint64_t data, const uint8_t size)
+bool ShutdownReg::write_internal(const uint64_t offset, const uint64_t data, const uint8_t size)
 {
     // QEMU base: only offset 0 reacts, and access sizes 2-4 bytes are valid
     if (offset != 0 || size < 2 || size > 4) {

@@ -25,24 +25,16 @@ void Ram::load(const uint8_t* data, const std::size_t size) const
     memcpy(memory.get(), data, size);
 }
 
-std::optional<uint64_t> Ram::read(const uint64_t offset, const uint8_t size) const
+std::optional<uint64_t> Ram::read_internal(const uint64_t offset, const uint8_t size) const
 {
-    if (offset >= get_size()) {
-        return std::nullopt;
-    }
-
     uint64_t out = 0;
     memcpy(&out, memory.get() + offset, size);
     return out;
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst [modifies member memory]
-bool Ram::write(const uint64_t offset, const uint64_t data, const uint8_t size)
+bool Ram::write_internal(const uint64_t offset, const uint64_t data, const uint8_t size)
 {
-    if (offset >= get_size()) {
-        return false;
-    }
-
     memcpy(memory.get() + offset, &data, size);
     return true;
 }

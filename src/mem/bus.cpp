@@ -32,7 +32,6 @@ std::optional<T> Bus::load(const uint64_t addr) const
 template <UintFamily T>
 bool Bus::store(const uint64_t addr, const T data)
 {
-
     const auto lookup = device_map.try_lookup(addr, sizeof(T));
 
     if (!lookup) {

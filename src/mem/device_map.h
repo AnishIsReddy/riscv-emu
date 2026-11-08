@@ -16,7 +16,7 @@ class BusDevice;
 class DeviceMap
 {
   public:
-    void add_mapping(uint64_t base_addr, BusDevice& device);
+    void add_mapping(uint64_t base_addr, BusDevice& device, std::optional<uint64_t> addr_space_size = std::nullopt);
 
     void finalize();
 
@@ -31,6 +31,7 @@ class DeviceMap
 
   private:
     std::vector<uint64_t> base_addrs;
+    std::vector<uint64_t> addr_space_sizes;
     std::vector<BusDevice*> devices;
 
     bool is_finalized = false;

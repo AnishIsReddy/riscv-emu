@@ -20,11 +20,13 @@ class Ram : public BusDevice
 
     void load(const uint8_t* data, std::size_t size) const;
 
-    [[nodiscard]]
-    std::optional<uint64_t> read(uint64_t offset, uint8_t size) const override;
-    bool write(uint64_t offset, uint64_t data, uint8_t size) override;
-
     void dump(std::ostream& os) const;
+
+  protected:
+    [[nodiscard]]
+    std::optional<uint64_t> read_internal(uint64_t offset, uint8_t size) const override;
+    bool write_internal(uint64_t offset, uint64_t data, uint8_t size) override;
+
 
   private:
     std::unique_ptr<uint8_t[]> memory;

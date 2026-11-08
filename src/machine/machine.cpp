@@ -31,7 +31,7 @@ Machine::Machine()
     mem_io::DeviceMap map;
     map.add_mapping(0x0200'0000, *m_clint);
     map.add_mapping(0x8000'0000, *m_ram);
-    map.add_mapping(0x0010'0000, *m_shutdown_reg);
+    map.add_mapping(0x0010'0000, *m_shutdown_reg, 0x1000);
     map.finalize();
     bus = std::make_unique<mem_io::Bus>(std::move(map), 1);
 

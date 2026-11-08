@@ -16,21 +16,23 @@ namespace riscv_emu::mem_io {
 class ShutdownReg : public BusDevice
 {
   public:
-    static constexpr uint64_t ADDR_SPACE_WIDTH = 0x1000;
+    static constexpr uint64_t SIZE = 0x8;
 
     static constexpr uint32_t CLEAN_SHUTDOWN = 0x5555;
     static constexpr uint32_t PANIC_SHUTDOWN = 0x3333;
 
-    explicit ShutdownReg() : BusDevice(ADDR_SPACE_WIDTH) {}
-
-    [[nodiscard]]
-    std::optional<uint64_t> read(uint64_t offset, uint8_t size) const override;
-    bool write(uint64_t offset, uint64_t data, uint8_t size) override;
+    explicit ShutdownReg() : BusDevice(SIZE) {}
 
     [[nodiscard]] bool is_shutdown_pending() const;
     [[nodiscard]] bool is_clean_shutdown_pending() const;
     [[nodiscard]] bool is_panic_shutdown_pending() const;
     [[nodiscard]] uint32_t get_status_code() const;
+
+  protected:
+    [[nodiscard]]
+    std::optional<uint64_t> read_internal(uint64_t offset, uint8_t size) const override;
+    bool write_internal(uint64_t offset, uint64_t data, uint8_t size) override;
+
 
   private:
     uint32_t reg = 0;

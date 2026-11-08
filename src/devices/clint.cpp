@@ -12,7 +12,7 @@ constexpr uint64_t MSIP_MASK = 0x1;
 
 Clint::Clint(const size_t hart_count) : BusDevice(CLINT_ADDR_WIDTH), hart_count(hart_count) {}
 
-std::optional<uint64_t> Clint::read(const uint64_t offset, const uint8_t size) const
+std::optional<uint64_t> Clint::read_internal(const uint64_t offset, const uint8_t size) const
 {
     if (offset >= msip_base && offset + size <= msip_base + msip_size) {
         if (offset % 4 != 0 || size != 4) {
@@ -39,7 +39,7 @@ std::optional<uint64_t> Clint::read(const uint64_t offset, const uint8_t size) c
     return std::nullopt;
 }
 
-bool Clint::write(const uint64_t offset, const uint64_t data, const uint8_t size)
+bool Clint::write_internal(const uint64_t offset, const uint64_t data, const uint8_t size)
 {
     if (offset >= msip_base && offset + size <= msip_base + msip_size) {
         if (offset % 4 != 0 || size != 4) {
