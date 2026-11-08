@@ -4,13 +4,13 @@
 
 #include <utility>
 
-#include "cpu/csr_file.h"
+#include "cpu/csr/csr_file.h"
 
 #include <optional>
 #include <utility>
 
 #include "common/utils.h"
-#include "cpu/csr_regs.h"
+#include "cpu/csr/csr_regs.h"
 
 namespace riscv_emu::cpu {
 using namespace riscv_emu;

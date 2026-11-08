@@ -10,7 +10,7 @@
 #include <optional>
 
 #include "common/config.h"
-#include "cpu/csr_file.h"
+#include "cpu/csr/csr_file.h"
 #include "cpu/effect.h"
 #include "cpu/trap.h"
 

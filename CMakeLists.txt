@@ -12,7 +12,7 @@ endif ()
 # Everything except main.cpp, built once and shared by both executables.
 add_library(riscv_emu_core STATIC
         src/machine/machine.cpp
-        src/cpu/hart.cpp src/cpu/csr_file.cpp src/cpu/decode.cpp src/cpu/execute.cpp
+        src/cpu/hart.cpp src/cpu/csr/csr_file.cpp src/cpu/decode.cpp src/cpu/execute.cpp
         src/mem/bus.cpp src/mem/device_map.cpp
         src/devices/ram.cpp src/devices/clint.cpp
         src/devices/ShutdownReg.cpp

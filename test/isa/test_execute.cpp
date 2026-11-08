@@ -24,7 +24,7 @@
 
 #include "common/config.h"
 #include "common/utils.h"
-#include "cpu/csr_regs.h"
+#include "cpu/csr/csr_regs.h"
 #include "cpu/decode.h"
 #include "cpu/effect.h"
 #include "cpu/execute.h"
