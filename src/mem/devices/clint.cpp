@@ -2,11 +2,10 @@
 // Created by anish on 8/18/2026.
 //
 
-#include "devices/clint.h"
-
 #include "common/utils.h"
+#include "mem/devices/clint.h"
 
-using namespace riscv_emu::mem_io;
+namespace riscv_emu::mem::devices {
 
 constexpr uint64_t MSIP_MASK = 0x1;
 
@@ -74,3 +73,4 @@ void Clint::step()
 {
     mtime++;
 }
+} // namespace riscv_emu::mem::devices

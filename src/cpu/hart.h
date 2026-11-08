@@ -14,7 +14,7 @@
 #include "cpu/effect.h"
 #include "cpu/trap.h"
 
-namespace riscv_emu::mem_io {
+namespace riscv_emu::mem {
 class Bus;
 }
 
@@ -25,7 +25,7 @@ constexpr uint64_t RESET_PC = 0x8000'0000;
 class Hart
 {
   public:
-    explicit Hart(mem_io::Bus* bus_ptr, size_t id);
+    explicit Hart(mem::Bus* bus_ptr, size_t id);
 
     void step();
     void dump_regs(std::ostream& os) const;
@@ -92,7 +92,7 @@ class Hart
     PrivilegeLevel priv = PrivilegeLevel::M;
 
     uint64_t regs[REG_COUNT] = {};
-    mem_io::Bus* memory_bus;
+    mem::Bus* memory_bus;
     CsrFile csr_file;
 
     template <class... Ts>

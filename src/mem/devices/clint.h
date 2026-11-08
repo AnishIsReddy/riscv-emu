@@ -8,9 +8,9 @@
 #include <memory>
 #include <optional>
 
-#include "bus_device.h"
+#include "mem/bus_device.h"
 
-namespace riscv_emu::mem_io {
+namespace riscv_emu::mem::devices {
 
 class Clint : public BusDevice
 {
@@ -42,4 +42,4 @@ class Clint : public BusDevice
     const uint64_t mtime_size = 8;
 };
 
-} // namespace riscv_emu::mem_io
+} // namespace riscv_emu::mem::devices

@@ -6,9 +6,9 @@
 
 #include <cstdint>
 
-#include "bus_device.h"
+#include "mem/bus_device.h"
 
-namespace riscv_emu::mem_io {
+namespace riscv_emu::mem::devices {
 
 // Equivalent to OpenSBI test finisher (sifive_test, qemu hw/misc/sifive_test.c):
 // a guest write of 0x5555 = clean exit, 0x3333 = failure exit;
@@ -38,4 +38,4 @@ class ShutdownReg : public BusDevice
     uint32_t reg = 0;
 };
 
-} // namespace riscv_emu::mem_io
+} // namespace riscv_emu::mem::devices

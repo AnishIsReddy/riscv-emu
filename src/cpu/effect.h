@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <variant>
 
-#include "../devices/bus_device.h"
+#include "mem/bus_device.h"
 #include "cpu/trap.h"
 
 namespace riscv_emu::cpu {
@@ -51,14 +51,14 @@ struct InstrEffect
     };
 
     // ReSharper disable once CppTemplateParameterNeverUsed
-    template <mem_io::LoadFamily T>
+    template <mem::LoadFamily T>
     struct LoadMem
     {
         uint8_t rd;
         uint64_t addr;
     };
 
-    template <mem_io::UintFamily T>
+    template <mem::UintFamily T>
     struct StoreMem
     {
         uint64_t addr;
@@ -66,14 +66,14 @@ struct InstrEffect
     };
 
     // ReSharper disable once CppTemplateParameterNeverUsed
-    template <mem_io::LoadFamily T>
+    template <mem::LoadFamily T>
     struct LoadReserved
     {
         uint8_t rd;
         uint64_t addr;
     };
 
-    template <mem_io::UintFamily T>
+    template <mem::UintFamily T>
     struct StoreConditional
     {
         uint8_t rd;
@@ -81,7 +81,7 @@ struct InstrEffect
         T value;
     };
 
-    template <mem_io::UintFamily T>
+    template <mem::UintFamily T>
     struct AmoRmw
     {
         uint8_t rd;

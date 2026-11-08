@@ -9,8 +9,8 @@
 
 #include "common/config.h"
 #include "cpu/hart.h"
-#include "devices/clint.h"
-#include "devices/ram.h"
+#include "mem/devices/clint.h"
+#include "mem/devices/ram.h"
 #include "mem/bus.h"
 #include "mem/device_map.h"
 
@@ -19,21 +19,21 @@ using namespace riscv_emu;
 Machine::Machine()
 {
     // init devices
-    auto m_ram = std::make_unique<mem_io::Ram>(MEM_SIZE);
-    auto m_clint = std::make_unique<mem_io::Clint>(1);
-    auto m_shutdown_reg = std::make_unique<mem_io::ShutdownReg>();
+    auto m_ram = std::make_unique<mem::devices::Ram>(MEM_SIZE);
+    auto m_clint = std::make_unique<mem::devices::Clint>(1);
+    auto m_shutdown_reg = std::make_unique<mem::devices::ShutdownReg>();
 
     dram = m_ram.get();
     clint = m_clint.get();
     shutdown_reg = m_shutdown_reg.get();
 
     // init bus
-    mem_io::DeviceMap map;
+    mem::DeviceMap map;
     map.add_mapping(0x0200'0000, *m_clint);
     map.add_mapping(0x8000'0000, *m_ram);
     map.add_mapping(0x0010'0000, *m_shutdown_reg, 0x1000);
     map.finalize();
-    bus = std::make_unique<mem_io::Bus>(std::move(map), 1);
+    bus = std::make_unique<mem::Bus>(std::move(map), 1);
 
     // transfer device ownership to the machine
     devices.push_back(std::move(m_ram));

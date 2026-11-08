@@ -8,11 +8,11 @@
 #include <optional>
 #include <vector>
 
-#include "../devices/bus_device.h"
+#include "mem/bus_device.h"
 #include "cpu/effect.h"
 #include "mem/device_map.h"
 
-namespace riscv_emu::mem_io {
+namespace riscv_emu::mem {
 
 class Bus
 {
@@ -63,4 +63,4 @@ class Bus
     DeviceMap device_map;
     std::vector<HartReservation> hart_reservations;
 };
-} // namespace riscv_emu::mem_io
+} // namespace riscv_emu::mem

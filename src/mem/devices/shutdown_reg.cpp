@@ -2,11 +2,11 @@
 // Created by anish on 11/1/2026.
 //
 
-#include "ShutdownReg.h"
+#include "shutdown_reg.h"
 
 #include "common/utils.h"
 
-namespace riscv_emu::mem_io {
+namespace riscv_emu::mem::devices {
 
 std::optional<uint64_t> ShutdownReg::read_internal(uint64_t, uint8_t) const
 {
@@ -43,4 +43,4 @@ uint32_t ShutdownReg::get_status_code() const
 {
     return reg >> 16;
 }
-} // namespace riscv_emu::mem_io
+} // namespace riscv_emu::mem::devices

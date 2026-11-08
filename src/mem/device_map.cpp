@@ -7,10 +7,10 @@
 #include <ranges>
 #include <stdexcept>
 
-#include "../devices/bus_device.h"
+#include "mem/bus_device.h"
 #include "mem/device_map.h"
 
-using namespace riscv_emu::mem_io;
+using namespace riscv_emu::mem;
 
 void DeviceMap::add_mapping(const uint64_t base_addr, BusDevice& device, std::optional<uint64_t> addr_space_size)
 {

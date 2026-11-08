@@ -7,7 +7,7 @@
 #include <cstdint>
 
 namespace riscv_emu::cpu {
-class MStatusValue
+class MStatusReg
 {
     static constexpr int MIE = 3;
     static constexpr int MPIE = 7;

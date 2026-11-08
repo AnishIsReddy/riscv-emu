@@ -54,7 +54,7 @@ InstrEffect execute(const DecodedInstr instr, const uint64_t reg_file[REG_COUNT]
         return InstrEffect{.effect = InstrEffect::UpdateRd{.rd = instr.rd, .value = next_pc}, .new_pc = target};
     };
 
-    auto load = [&]<mem_io::LoadFamily T>(T)
+    auto load = [&]<mem::LoadFamily T>(T)
     {
         return emit(InstrEffect::LoadMem<T>{.rd = instr.rd, .addr = mem_addr});
     };
@@ -64,7 +64,7 @@ InstrEffect execute(const DecodedInstr instr, const uint64_t reg_file[REG_COUNT]
         return emit(InstrEffect::StoreMem{.addr = mem_addr, .value = value});
     };
 
-    auto load_reserved = [&]<mem_io::LoadResFamily T>(T)
+    auto load_reserved = [&]<mem::LoadResFamily T>(T)
     {
         return emit(InstrEffect::LoadReserved<T>{.rd = instr.rd, .addr = rs1});
     };
@@ -74,7 +74,7 @@ InstrEffect execute(const DecodedInstr instr, const uint64_t reg_file[REG_COUNT]
         return emit(InstrEffect::StoreConditional{.rd = instr.rd, .addr = rs1, .value = value});
     };
 
-    auto amo = [&]<mem_io::AtomicFamily T>(const T value, const AmoType amo_type)
+    auto amo = [&]<mem::AtomicFamily T>(const T value, const AmoType amo_type)
     {
         return emit(InstrEffect::AmoRmw<T>{.rd = instr.rd, .type = amo_type, .addr = rs1, .value = value});
     };

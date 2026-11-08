@@ -10,16 +10,18 @@
 #include <memory>
 #include <vector>
 
-#include "devices/ShutdownReg.h"
+#include "mem/devices/shutdown_reg.h"
 
 namespace riscv_emu {
 
-namespace mem_io {
+namespace mem {
 class Bus;
 class BusDevice;
+namespace devices {
 class Ram;
 class Clint;
-} // namespace mem_io
+} // namespace mem::devices
+} // namespace mem
 
 namespace cpu {
 class Hart;
@@ -38,12 +40,12 @@ class Machine
     Machine& operator=(Machine&&) = delete;
 
   private:
-    std::vector<std::unique_ptr<mem_io::BusDevice>> devices; // owns all devices
-    std::unique_ptr<mem_io::Bus> bus;
+    std::vector<std::unique_ptr<mem::BusDevice>> devices; // owns all devices
+    std::unique_ptr<mem::Bus> bus;
 
-    mem_io::Ram* dram = nullptr;
-    mem_io::Clint* clint = nullptr;
-    mem_io::ShutdownReg* shutdown_reg = nullptr;
+    mem::devices::Ram* dram = nullptr;
+    mem::devices::Clint* clint = nullptr;
+    mem::devices::ShutdownReg* shutdown_reg = nullptr;
 
     std::vector<cpu::Hart> harts;
 };

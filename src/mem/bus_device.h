@@ -10,7 +10,7 @@
 
 #include "common/utils.h"
 
-namespace riscv_emu::mem_io {
+namespace riscv_emu::mem {
 template <typename T>
 concept UintFamily =
     std::same_as<T, uint8_t> || std::same_as<T, uint16_t> || std::same_as<T, uint32_t> || std::same_as<T, uint64_t>;
@@ -71,4 +71,4 @@ class BusDevice
 
     const uint64_t size;
 };
-} // namespace riscv_emu::mem_io
+} // namespace riscv_emu::mem

@@ -12,7 +12,7 @@
 #include "common/utils.h"
 #include "mem/device_map.h"
 
-using namespace riscv_emu::mem_io;
+using namespace riscv_emu::mem;
 using namespace riscv_emu::cpu;
 
 Bus::Bus(DeviceMap&& map, const size_t hart_count) : device_map(std::move(map)), hart_reservations(hart_count) {}

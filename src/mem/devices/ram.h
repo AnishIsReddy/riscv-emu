@@ -10,9 +10,9 @@
 #include <memory>
 #include <optional>
 
-#include "bus_device.h"
+#include "mem/bus_device.h"
 
-namespace riscv_emu::mem_io {
+namespace riscv_emu::mem::devices {
 class Ram : public BusDevice
 {
   public:
@@ -31,4 +31,4 @@ class Ram : public BusDevice
   private:
     std::unique_ptr<uint8_t[]> memory;
 };
-} // namespace riscv_emu::mem_io
+} // namespace riscv_emu::mem::devices

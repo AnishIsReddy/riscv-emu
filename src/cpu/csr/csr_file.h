@@ -58,7 +58,7 @@ class CsrFile
     static bool is_hpm_addr(uint16_t addr);
 
     uint64_t mhartid;
-    MStatusValue mstatus;
+    MStatusReg mstatus;
     uint64_t mtvec = 0;
     uint64_t medeleg = 0;
     uint64_t mideleg = 0;

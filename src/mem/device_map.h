@@ -9,7 +9,7 @@
 #include <optional>
 #include <vector>
 
-namespace riscv_emu::mem_io {
+namespace riscv_emu::mem {
 
 class BusDevice;
 
@@ -37,4 +37,4 @@ class DeviceMap
     bool is_finalized = false;
 };
 
-} // namespace riscv_emu::mem_io
+} // namespace riscv_emu::mem

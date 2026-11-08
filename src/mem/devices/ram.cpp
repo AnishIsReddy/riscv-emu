@@ -7,9 +7,9 @@
 #include <stdexcept>
 
 #include "common/utils.h"
-#include "devices/ram.h"
+#include "mem/devices/ram.h"
 
-using namespace riscv_emu::mem_io;
+namespace riscv_emu::mem::devices {
 
 Ram::Ram(const uint64_t size) : BusDevice(size)
 {
@@ -64,3 +64,4 @@ void Ram::dump(std::ostream& os) const
         os << "\n";
     }
 }
+} // namespace riscv_emu::mem::devices
