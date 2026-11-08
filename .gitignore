@@ -12,6 +12,7 @@ CMakeCache.txt
 /CMakeFiles
 /.cmake
 /Testing
+CTestTestfile.cmake
 
 /test.bin
 /test.elf
