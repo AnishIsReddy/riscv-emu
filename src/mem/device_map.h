@@ -11,18 +11,18 @@
 
 namespace riscv_emu::mem {
 
-class BusDevice;
+class DeviceBase;
 
 class DeviceMap
 {
   public:
-    void add_mapping(uint64_t base_addr, BusDevice& device, std::optional<uint64_t> addr_space_size = std::nullopt);
+    void add_mapping(uint64_t base_addr, DeviceBase& device, std::optional<uint64_t> addr_space_size = std::nullopt);
 
     void finalize();
 
     struct LookupResult
     {
-        BusDevice* device;
+        DeviceBase* device;
         uint64_t offset;
     };
 
@@ -32,7 +32,7 @@ class DeviceMap
   private:
     std::vector<uint64_t> base_addrs;
     std::vector<uint64_t> addr_space_sizes;
-    std::vector<BusDevice*> devices;
+    std::vector<DeviceBase*> devices;
 
     bool is_finalized = false;
 };

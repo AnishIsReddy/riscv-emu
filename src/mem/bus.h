@@ -4,15 +4,27 @@
 
 #pragma once
 
-#include <cstddef>
+#include <concepts>
 #include <optional>
 #include <vector>
 
-#include "mem/bus_device.h"
 #include "cpu/effect.h"
 #include "mem/device_map.h"
 
 namespace riscv_emu::mem {
+
+template <typename T>
+concept UintFamily =
+    std::same_as<T, uint8_t> || std::same_as<T, uint16_t> || std::same_as<T, uint32_t> || std::same_as<T, uint64_t>;
+
+template <typename T>
+concept LoadFamily = UintFamily<T> || std::same_as<T, int8_t> || std::same_as<T, int16_t> || std::same_as<T, int32_t>;
+
+template <typename T>
+concept LoadResFamily = std::same_as<T, uint64_t> || std::same_as<T, int32_t>;
+
+template <typename T>
+concept AtomicFamily = std::same_as<T, uint32_t> || std::same_as<T, uint64_t>;
 
 class Bus
 {

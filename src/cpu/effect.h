@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <variant>
 
-#include "mem/bus_device.h"
 #include "cpu/trap.h"
+#include "mem/device_base.h"
 
 namespace riscv_emu::cpu {
 

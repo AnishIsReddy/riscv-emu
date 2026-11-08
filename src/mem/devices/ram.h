@@ -10,10 +10,10 @@
 #include <memory>
 #include <optional>
 
-#include "mem/bus_device.h"
+#include "mem/device_base.h"
 
 namespace riscv_emu::mem::devices {
-class Ram : public BusDevice
+class Ram : public DeviceBase
 {
   public:
     explicit Ram(uint64_t size);

@@ -16,7 +16,7 @@ namespace riscv_emu {
 
 namespace mem {
 class Bus;
-class BusDevice;
+class DeviceBase;
 namespace devices {
 class Ram;
 class Clint;
@@ -40,7 +40,7 @@ class Machine
     Machine& operator=(Machine&&) = delete;
 
   private:
-    std::vector<std::unique_ptr<mem::BusDevice>> devices; // owns all devices
+    std::vector<std::unique_ptr<mem::DeviceBase>> devices; // owns all devices
     std::unique_ptr<mem::Bus> bus;
 
     mem::devices::Ram* dram = nullptr;

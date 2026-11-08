@@ -6,14 +6,14 @@
 
 #include <cstdint>
 
-#include "mem/bus_device.h"
+#include "mem/device_base.h"
 
 namespace riscv_emu::mem::devices {
 
 // Equivalent to OpenSBI test finisher (sifive_test, qemu hw/misc/sifive_test.c):
 // a guest write of 0x5555 = clean exit, 0x3333 = failure exit;
 // 0x7777 requests a VM reset which this emulation does not yet support.
-class ShutdownReg : public BusDevice
+class ShutdownReg : public DeviceBase
 {
   public:
     static constexpr uint64_t SIZE = 0x8;
@@ -21,7 +21,7 @@ class ShutdownReg : public BusDevice
     static constexpr uint32_t CLEAN_SHUTDOWN = 0x5555;
     static constexpr uint32_t PANIC_SHUTDOWN = 0x3333;
 
-    explicit ShutdownReg() : BusDevice(SIZE) {}
+    explicit ShutdownReg() : DeviceBase(SIZE) {}
 
     [[nodiscard]] bool is_shutdown_pending() const;
     [[nodiscard]] bool is_clean_shutdown_pending() const;

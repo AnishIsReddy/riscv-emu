@@ -7,12 +7,12 @@
 #include <ranges>
 #include <stdexcept>
 
-#include "mem/bus_device.h"
+#include "mem/device_base.h"
 #include "mem/device_map.h"
 
 using namespace riscv_emu::mem;
 
-void DeviceMap::add_mapping(const uint64_t base_addr, BusDevice& device, std::optional<uint64_t> addr_space_size)
+void DeviceMap::add_mapping(const uint64_t base_addr, DeviceBase& device, std::optional<uint64_t> addr_space_size)
 {
     if (is_finalized) {
         throw std::runtime_error("Attempted to add a device to a finalized device map");

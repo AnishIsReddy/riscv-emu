@@ -4,32 +4,18 @@
 
 #pragma once
 
-#include <concepts>
 #include <cstdint>
 #include <optional>
 
 #include "common/utils.h"
 
 namespace riscv_emu::mem {
-template <typename T>
-concept UintFamily =
-    std::same_as<T, uint8_t> || std::same_as<T, uint16_t> || std::same_as<T, uint32_t> || std::same_as<T, uint64_t>;
-
-template <typename T>
-concept LoadFamily = UintFamily<T> || std::same_as<T, int8_t> || std::same_as<T, int16_t> || std::same_as<T, int32_t>;
-
-template <typename T>
-concept LoadResFamily = std::same_as<T, uint64_t> || std::same_as<T, int32_t>;
-
-template <typename T>
-concept AtomicFamily = std::same_as<T, uint32_t> || std::same_as<T, uint64_t>;
-
-class BusDevice
+class DeviceBase
 {
   public:
-    explicit BusDevice(const uint64_t size) : size(size) {}
+    explicit DeviceBase(const uint64_t size) : size(size) {}
 
-    virtual ~BusDevice() = default;
+    virtual ~DeviceBase() = default;
 
     [[nodiscard]]
     std::optional<uint64_t> read(const uint64_t offset, const uint8_t access_size) const

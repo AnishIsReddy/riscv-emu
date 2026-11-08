@@ -8,11 +8,11 @@
 #include <memory>
 #include <optional>
 
-#include "mem/bus_device.h"
+#include "mem/device_base.h"
 
 namespace riscv_emu::mem::devices {
 
-class Clint : public BusDevice
+class Clint : public DeviceBase
 {
   public:
     explicit Clint(size_t hart_count);
