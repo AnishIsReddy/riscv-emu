@@ -34,7 +34,7 @@ class CsrFile
     trap_ret_info return_trap_m();
 
     [[nodiscard]]
-    std::optional<TrapCause> check_for_pending_interrupt(PrivilegeLevel priv) const;
+    std::optional<TrapCause> check_interrupts(PrivilegeLevel priv) const;
 
     [[nodiscard]]
     bool is_wfi_valid(PrivilegeLevel priv) const;

@@ -176,7 +176,7 @@ void Hart::step()
     csr_file.increment_cycle_count();
 
     // Check Pending Interrupts
-    const auto res = csr_file.check_for_pending_interrupt(priv);
+    const auto res = csr_file.check_interrupts(priv);
     if (res) {
         raise(ns, *res, 0);
     }

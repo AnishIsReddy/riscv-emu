@@ -156,7 +156,7 @@ CsrFile::trap_ret_info CsrFile::return_trap_m()
     return std::make_pair(pc, new_priv);
 }
 
-std::optional<TrapCause> CsrFile::check_for_pending_interrupt(const PrivilegeLevel priv) const
+std::optional<TrapCause> CsrFile::check_interrupts(const PrivilegeLevel priv) const
 {
     // Below M, M-mode interrupts are always enabled (hierarchical enables);
     // MIE gates machine interrupts only while executing in M
