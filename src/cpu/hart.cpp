@@ -179,6 +179,7 @@ void Hart::step()
     const auto res = csr_file.check_interrupts(priv);
     if (res) {
         raise(ns, *res, 0);
+        return;
     }
 
     // Fetch
