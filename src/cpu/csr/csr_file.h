@@ -10,6 +10,8 @@
 #include <utility>
 
 #include "cpu/csr/mstatus.h"
+#include "mie.h"
+#include "mip.h"
 
 #include "cpu/trap.h"
 
@@ -17,10 +19,12 @@ namespace riscv_emu::cpu {
 class CsrFile
 {
   public:
-    explicit CsrFile(const uint64_t hart_id) : mhartid(hart_id) {}
+    explicit CsrFile(const uint64_t hart_id, mem::devices::Clint* clint_ptr) : mhartid(hart_id), mip(clint_ptr, hart_id)
+    {
+    }
 
     [[nodiscard]]
-    std::expected<uint64_t, TrapCause> read(uint16_t addr, PrivilegeLevel priv) const;
+    std::expected<uint64_t, TrapCause> read(uint16_t addr, PrivilegeLevel priv);
 
     std::optional<TrapCause> write(uint16_t addr, uint64_t value, PrivilegeLevel priv);
 
@@ -41,17 +45,6 @@ class CsrFile
     static constexpr uint64_t MIDELEG_WRITE_MASK = 0x222; // S-mode interrupts (1,5,9); M-interrupts excluded
     static constexpr uint64_t MTVEC_WRITE_MASK = ~0x2; // everything except bit 1 should be writable
 
-    // M-Mode and S-Mode interrupts
-    static constexpr uint64_t MIE_WRITE_MASK = 1 << InterruptType::MACHINE_SOFTWARE |
-                                               1 << InterruptType::MACHINE_TIMER |
-                                               1 << InterruptType::MACHINE_EXTERNAL |
-                                               1 << InterruptType::SUPERVISOR_SOFTWARE |
-                                               1 << InterruptType::SUPERVISOR_TIMER |
-                                               1 << InterruptType::SUPERVISOR_EXTERNAL;
-
-    // Software interrupts should be writable
-    static constexpr uint64_t MIP_WRITE_MASK =
-        1 << InterruptType::MACHINE_SOFTWARE | 1 << InterruptType::SUPERVISOR_SOFTWARE;
 
     static bool is_correct_privilege(uint16_t addr, PrivilegeLevel access_priv);
     static bool is_writeable_addr(uint16_t addr);
@@ -62,8 +55,8 @@ class CsrFile
     uint64_t mtvec = 0;
     uint64_t medeleg = 0;
     uint64_t mideleg = 0;
-    uint64_t mip = 0;
-    uint64_t mie = 0;
+    MIPReg mip;
+    MIEReg mie;
 
     uint64_t mcycle = 0;
     uint64_t minstret = 0;

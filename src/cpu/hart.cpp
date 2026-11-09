@@ -15,7 +15,10 @@
 namespace riscv_emu::cpu {
 using namespace riscv_emu;
 
-Hart::Hart(mem::Bus* bus_ptr, const size_t id) : hart_id(id), memory_bus(bus_ptr), csr_file(id) {}
+Hart::Hart(mem::Bus* bus_ptr, const size_t id, mem::devices::Clint* clint_ptr) :
+    hart_id(id), memory_bus(bus_ptr), csr_file(id, clint_ptr)
+{
+}
 
 std::optional<uint32_t> Hart::fetch_next_instr(NextState& ns)
 {
@@ -49,7 +52,7 @@ void Hart::apply_instr_effect(NextState& ns, const InstrEffect::effect_type& eff
                               {
                                   regs[e.rd] = e.value;
                               },
-                              [&]<mem::LoadFamily T>(const InstrEffect::LoadMem<T>& e)
+                              [&]<LoadFamily T>(const InstrEffect::LoadMem<T>& e)
                               {
                                   auto load_result = memory_bus->load<T>(e.addr);
                                   if (!load_result) {
@@ -58,14 +61,14 @@ void Hart::apply_instr_effect(NextState& ns, const InstrEffect::effect_type& eff
                                   }
                                   regs[e.rd] = u64(*load_result);
                               },
-                              [&]<mem::UintFamily T>(const InstrEffect::StoreMem<T>& e)
+                              [&]<UintFamily T>(const InstrEffect::StoreMem<T>& e)
                               {
                                   auto store_ok = memory_bus->store<T>(e.addr, e.value);
                                   if (!store_ok) {
                                       raise(ns, ExceptionType::STORE_AMO_ACCESS_FAULT, e.addr);
                                   }
                               },
-                              [&]<mem::LoadResFamily T>(const InstrEffect::LoadReserved<T>& e)
+                              [&]<LoadResFamily T>(const InstrEffect::LoadReserved<T>& e)
                               {
                                   auto load_result = memory_bus->load_reserved<T>(e.addr, hart_id);
                                   if (!load_result) {
@@ -75,7 +78,7 @@ void Hart::apply_instr_effect(NextState& ns, const InstrEffect::effect_type& eff
 
                                   regs[e.rd] = u64(*load_result);
                               },
-                              [&]<mem::AtomicFamily T>(const InstrEffect::StoreConditional<T>& e)
+                              [&]<AtomicFamily T>(const InstrEffect::StoreConditional<T>& e)
                               {
                                   auto store_result = memory_bus->store_conditional<T>(e.addr, e.value, hart_id);
                                   if (!store_result) {
@@ -92,7 +95,7 @@ void Hart::apply_instr_effect(NextState& ns, const InstrEffect::effect_type& eff
                                       regs[e.rd] = 1;
                                   }
                               },
-                              [&]<mem::AtomicFamily T>(const InstrEffect::AmoRmw<T>& e)
+                              [&]<AtomicFamily T>(const InstrEffect::AmoRmw<T>& e)
                               {
                                   auto amo_result = memory_bus->handle_amo<T>(e.type, e.addr, e.value);
                                   if (!amo_result) {

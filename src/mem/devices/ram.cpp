@@ -11,7 +11,7 @@
 
 namespace riscv_emu::mem::devices {
 
-Ram::Ram(const uint64_t size) : BusDevice(size)
+Ram::Ram(const uint64_t size) : DeviceBase(size)
 {
     memory = std::make_unique<uint8_t[]>(size);
 }

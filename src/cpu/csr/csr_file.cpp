@@ -7,7 +7,6 @@
 #include "cpu/csr/csr_file.h"
 
 #include <optional>
-#include <utility>
 
 #include "common/utils.h"
 #include "cpu/csr/csr_regs.h"
@@ -15,7 +14,7 @@
 namespace riscv_emu::cpu {
 using namespace riscv_emu;
 
-std::expected<uint64_t, TrapCause> CsrFile::read(const uint16_t addr, const PrivilegeLevel priv) const
+std::expected<uint64_t, TrapCause> CsrFile::read(const uint16_t addr, const PrivilegeLevel priv)
 {
     if (!is_correct_privilege(addr, priv)) {
         return std::unexpected(ExceptionType::ILLEGAL_INSTRUCTION);
@@ -37,8 +36,8 @@ std::expected<uint64_t, TrapCause> CsrFile::read(const uint16_t addr, const Priv
     case MTVEC:         return mtvec;
     case MEDELEG:       return medeleg;
     case MIDELEG:       return mideleg;
-    case MIP:           return mip;
-    case MIE:           return mie;
+    case MIP:           return mip.read();
+    case MIE:           return mie.read();
     case MCYCLE:        return mcycle;
     case MINSTRET:      return minstret;
     case MCOUNTEREN:    return mcounteren;
@@ -76,13 +75,13 @@ std::optional<TrapCause> CsrFile::write(const uint16_t addr, const uint64_t valu
     case MISA:      return std::nullopt;
     case MVENDORID:
     case MARCHID:
-    case MHARTID:   std::unreachable();
+    case MHARTID:   std::unreachable(); // caught by is_writeable_addr() above
     case MSTATUS:   mstatus.write(value); return std::nullopt;
     case MTVEC:     mtvec = (mtvec & ~MTVEC_WRITE_MASK) | (value & MTVEC_WRITE_MASK); return std::nullopt;
     case MEDELEG:   medeleg = (medeleg & ~MEDELEG_WRITE_MASK) | (value & MEDELEG_WRITE_MASK); return std::nullopt;
     case MIDELEG:   mideleg = (mideleg & ~MIDELEG_WRITE_MASK) | (value & MIDELEG_WRITE_MASK); return std::nullopt;
-    case MIP:       mip = (mip & ~MIP_WRITE_MASK) | (value & MIP_WRITE_MASK); return std::nullopt;
-    case MIE:       mie = (mie & ~MIE_WRITE_MASK) | (value & MIE_WRITE_MASK); return std::nullopt;
+    case MIP:       mip.write(value); return std::nullopt;
+    case MIE:       mie.write(value); return std::nullopt;
     case MCYCLE:    mcycle = value; return std::nullopt;
     case MINSTRET:
         wrote_minstret = true;
@@ -91,15 +90,13 @@ std::optional<TrapCause> CsrFile::write(const uint16_t addr, const uint64_t valu
     case MCOUNTEREN:    mcounteren = value; return std::nullopt;
     case MCOUNTINHIBIT: return std::nullopt;
     case MSCRATCH:      mscratch = value; return std::nullopt;
-    case MEPC:
-        mepc = value & ~0b11; // prevent any misaligned addr writes
-        return std::nullopt;
-    case MCAUSE:     mcause = value; return std::nullopt;
-    case MTVAL:      mtval = value; return std::nullopt;
-    case MCONFIGPTR: std::unreachable();
-    case MENVCFG:    menvcfg = value; return std::nullopt;
-    case MSECCFG:    mseccfg = value; return std::nullopt;
-    default:         return ExceptionType::ILLEGAL_INSTRUCTION;
+    case MEPC:          mepc = value & ~0b11; return std::nullopt; // prevent any misaligned addr writes
+    case MCAUSE:        mcause = value; return std::nullopt;
+    case MTVAL:         mtval = value; return std::nullopt;
+    case MCONFIGPTR:    std::unreachable();
+    case MENVCFG:       menvcfg = value; return std::nullopt;
+    case MSECCFG:       mseccfg = value; return std::nullopt;
+    default:            return ExceptionType::ILLEGAL_INSTRUCTION;
     }
 
     return std::nullopt;

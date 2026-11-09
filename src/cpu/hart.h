@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
 #include <iosfwd>
 #include <optional>
@@ -25,7 +24,7 @@ constexpr uint64_t RESET_PC = 0x8000'0000;
 class Hart
 {
   public:
-    explicit Hart(mem::Bus* bus_ptr, size_t id);
+    Hart(mem::Bus* bus_ptr, size_t id, mem::devices::Clint* clint_ptr);
 
     void step();
     void dump_regs(std::ostream& os) const;

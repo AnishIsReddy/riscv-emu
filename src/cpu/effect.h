@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <variant>
 
+#include "common/access.h"
 #include "cpu/trap.h"
-#include "mem/device_base.h"
 
 namespace riscv_emu::cpu {
 
@@ -51,14 +51,14 @@ struct InstrEffect
     };
 
     // ReSharper disable once CppTemplateParameterNeverUsed
-    template <mem::LoadFamily T>
+    template <LoadFamily T>
     struct LoadMem
     {
         uint8_t rd;
         uint64_t addr;
     };
 
-    template <mem::UintFamily T>
+    template <UintFamily T>
     struct StoreMem
     {
         uint64_t addr;
@@ -66,14 +66,14 @@ struct InstrEffect
     };
 
     // ReSharper disable once CppTemplateParameterNeverUsed
-    template <mem::LoadFamily T>
+    template <LoadFamily T>
     struct LoadReserved
     {
         uint8_t rd;
         uint64_t addr;
     };
 
-    template <mem::UintFamily T>
+    template <UintFamily T>
     struct StoreConditional
     {
         uint8_t rd;
@@ -81,7 +81,7 @@ struct InstrEffect
         T value;
     };
 
-    template <mem::UintFamily T>
+    template <UintFamily T>
     struct AmoRmw
     {
         uint8_t rd;
@@ -122,7 +122,7 @@ struct InstrEffect
                      StoreConditional<uint32_t>, StoreConditional<uint64_t>, AmoRmw<uint32_t>, AmoRmw<uint64_t>, CsrRmw,
                      RaiseTrap, TrapReturn, HandleWfi>;
 
-    effect_type effect;
-    uint64_t new_pc;
+    effect_type effect{};
+    uint64_t new_pc{};
 };
 } // namespace riscv_emu::cpu

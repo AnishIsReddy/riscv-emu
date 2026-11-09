@@ -2,14 +2,14 @@
 // Created by anish on 8/18/2026.
 //
 
-#include "common/utils.h"
 #include "mem/devices/clint.h"
+#include "common/utils.h"
 
 namespace riscv_emu::mem::devices {
 
 constexpr uint64_t MSIP_MASK = 0x1;
 
-Clint::Clint(const size_t hart_count) : BusDevice(CLINT_ADDR_WIDTH), hart_count(hart_count) {}
+Clint::Clint(const size_t hart_count) : DeviceBase(CLINT_ADDR_WIDTH), hart_count(hart_count) {}
 
 std::optional<uint64_t> Clint::read_internal(const uint64_t offset, const uint8_t size) const
 {
@@ -73,4 +73,15 @@ void Clint::step()
 {
     mtime++;
 }
+
+bool Clint::is_timer_interrupt_pending(const size_t hart_id) const
+{
+    return mtime >= mtimecmp[hart_id];
+}
+
+bool Clint::is_software_interrupt_pending(const size_t hart_id) const
+{
+    return msip[hart_id];
+}
+
 } // namespace riscv_emu::mem::devices

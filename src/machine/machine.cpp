@@ -9,10 +9,10 @@
 
 #include "common/config.h"
 #include "cpu/hart.h"
-#include "mem/devices/clint.h"
-#include "mem/devices/ram.h"
 #include "mem/bus.h"
 #include "mem/device_map.h"
+#include "mem/devices/clint.h"
+#include "mem/devices/ram.h"
 
 using namespace riscv_emu;
 
@@ -41,7 +41,7 @@ Machine::Machine()
     devices.push_back(std::move(m_shutdown_reg));
 
     // create harts
-    harts.emplace_back(bus.get(), 0);
+    harts.emplace_back(bus.get(), 0, m_clint.get());
 }
 
 Machine::~Machine() = default;

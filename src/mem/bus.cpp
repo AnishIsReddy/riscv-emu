@@ -10,10 +10,12 @@
 #include <utility>
 
 #include "common/utils.h"
+#include "mem/bus.h"
+#include "mem/device_base.h"
 #include "mem/device_map.h"
 
+using namespace riscv_emu;
 using namespace riscv_emu::mem;
-using namespace riscv_emu::cpu;
 
 Bus::Bus(DeviceMap&& map, const size_t hart_count) : device_map(std::move(map)), hart_reservations(hart_count) {}
 
@@ -97,7 +99,7 @@ void Bus::clear_addr_reservations(const uint64_t addr, const uint8_t size)
 }
 
 template <AtomicFamily T>
-std::optional<T> Bus::handle_amo(const AmoType type, const uint64_t addr, const T data)
+std::optional<T> Bus::handle_amo(const cpu::AmoType type, const uint64_t addr, const T data)
 {
     // overflow protection
     if (addr > addr + sizeof(T)) {
@@ -114,7 +116,7 @@ std::optional<T> Bus::handle_amo(const AmoType type, const uint64_t addr, const 
 
     switch (type) {
         using S = std::make_signed_t<T>;
-        using enum AmoType;
+        using enum cpu::AmoType;
     case SWAP: new_value = data; break;
     case ADD:  new_value = static_cast<T>(data + old_value); break;
     case XOR:  new_value = data ^ old_value; break;
@@ -149,7 +151,7 @@ std::optional<T> Bus::handle_amo(const AmoType type, const uint64_t addr, const 
 #define INST_BUS_STORE(T) template bool Bus::store<T>(uint64_t, T);
 #define INST_BUS_LR(T) template std::optional<T> Bus::load_reserved<T>(uint64_t, size_t);
 #define INST_BUS_SC(T) template std::optional<bool> Bus::store_conditional<T>(uint64_t, T, size_t);
-#define INST_BUS_AMO(T) template std::optional<T> Bus::handle_amo<T>(AmoType, uint64_t, T);
+#define INST_BUS_AMO(T) template std::optional<T> Bus::handle_amo<T>(cpu::AmoType, uint64_t, T);
 
 
 BUS_LOAD_TYPES(INST_BUS_LOAD)

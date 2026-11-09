@@ -15,8 +15,8 @@ add_library(riscv_emu_core STATIC
         src/cpu/hart.cpp src/cpu/csr/csr_file.cpp src/cpu/decode.cpp src/cpu/execute.cpp
         src/mem/bus.cpp src/mem/device_map.cpp
         src/mem/devices/ram.cpp src/mem/devices/clint.cpp
-        src/mem/devices/shutdown_reg.cpp
-        src/mem/devices/shutdown_reg.h)
+        src/mem/devices/shutdown_reg.cpp)
+
 target_include_directories(riscv_emu_core PUBLIC src)
 target_compile_options(riscv_emu_core PRIVATE -Wall -Wextra -Werror=return-type -Werror=switch)
 
