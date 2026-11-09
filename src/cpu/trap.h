@@ -46,6 +46,17 @@ constexpr uint64_t operator<<(const uint64_t lhs, const InterruptType rhs)
     return lhs << std::to_underlying(rhs);
 }
 
+// Simultaneous interrupt priority per the privileged spec: external >
+// software > timer, M > S
+inline constexpr InterruptType IRQ_PRIORITY[] = {
+    InterruptType::MACHINE_EXTERNAL,
+    InterruptType::SUPERVISOR_EXTERNAL,
+    InterruptType::MACHINE_SOFTWARE,
+    InterruptType::SUPERVISOR_SOFTWARE,
+    InterruptType::MACHINE_TIMER,
+    InterruptType::SUPERVISOR_TIMER,
+};
+
 struct TrapCause
 {
     uint64_t code;

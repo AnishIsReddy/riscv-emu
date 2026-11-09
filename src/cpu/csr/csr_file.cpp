@@ -156,6 +156,25 @@ CsrFile::trap_ret_info CsrFile::return_trap_m()
     return std::make_pair(pc, new_priv);
 }
 
+std::optional<TrapCause> CsrFile::check_for_pending_interrupt(const PrivilegeLevel priv) const
+{
+    // Below M, M-mode interrupts are always enabled (hierarchical enables);
+    // MIE gates machine interrupts only while executing in M
+    if (priv == PrivilegeLevel::M && !mstatus.mie()) {
+        return std::nullopt;
+    }
+
+    const auto pending = mip.read() & mie.read();
+
+    for (const auto type : IRQ_PRIORITY) {
+        if (pending & (uint64_t{1} << std::to_underlying(type))) {
+            return TrapCause{type};
+        }
+    }
+
+    return std::nullopt;
+}
+
 bool CsrFile::is_hpm_addr(const uint16_t addr)
 {
     constexpr uint64_t ctr_base = 0xB03;

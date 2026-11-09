@@ -175,7 +175,11 @@ void Hart::step()
     NextState ns(pc, priv);
     csr_file.increment_cycle_count();
 
-    // TBI check interrupts and trap to caller if needed
+    // Check Pending Interrupts
+    const auto res = csr_file.check_for_pending_interrupt(priv);
+    if (res) {
+        raise(ns, *res, 0);
+    }
 
     // Fetch
     const auto raw_instr = fetch_next_instr(ns);
